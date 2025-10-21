@@ -91,22 +91,28 @@ def generate_poa_document(data):
             'objective': 'her'
         }
     
-    # Define all replacements
+    # Define all replacements - including all possible variations
     replacements = {
         '{CLIENT NAME}': data.get('CLIENT_NAME', ''),
         '{COUNTY}': data.get('COUNTY', ''),
         '{AIF RELATIONSHIP}': data.get('AIF_RELATIONSHIP', ''),
         '{AIF NAME}': data.get('AIF_NAME', ''),
+        '{AIF NAME (usually the client\'s spouse)}': data.get('AIF_NAME', ''),
         '{ALTERNATE AIF RELATIONSHIP}': data.get('ALTERNATE_AIF_RELATIONSHIP', ''),
         '{ALTERNATE AIF NAME}': data.get('ALTERNATE_AIF_NAME', ''),
         '{EXEC MONTH}': data.get('EXEC_MONTH', ''),
         '{EXEC YEAR}': data.get('EXEC_YEAR', ''),
+        '{CURRENT MONTH}': data.get('EXEC_MONTH', ''),
+        '{YEAR}': data.get('EXEC_YEAR', ''),
         '{SUBJECTIVE PRONOUN}': pronouns['subjective'],
         '{POSSESSIVE PRONOUN}': pronouns['possessive'],
         '{OBJECTIVE PRONOUN}': pronouns['objective'],
         '{HE/SHE}': pronouns['subjective'],
         '{HIS/HER}': pronouns['possessive'],
         '{HIM/HER}': pronouns['objective'],
+        '{he/she}': pronouns['subjective'],
+        '{his/her}': pronouns['possessive'],
+        '{him/her}': pronouns['objective'],
     }
     
     # Replace in all paragraphs
