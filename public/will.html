@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tennessee Will Generator</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script>
+        const { useState } = React;
+
+        function WillGenerator() {
+            const [formData, setFormData] = useState({
+                CLIENT_NAME: '',
+                CLIENT_GENDER: 'Female',
+                SN_BENEFICIARY: '',
+                SN_BENEFICIARY_GENDER: 'Male',
+                PRIMARY_EXECUTOR: '',
+                ALTERNATE_EXECUTOR: '',
+                COUNTY: 'Maury',
+                EXEC_MONTH: 'October',
+                EXEC_YEAR: '2025',
+                INCLUDE_GUARDIAN: false,
+                INCLUDE_TRUST_MINORS: false,
+                INCLUDE_TRUST_AGE_25: false,
+                IS_TRUST_WILL: false,
+                TRUST_AGE_DISTRIBUTION: '25'
+            });
+
+            const [children, setChildren] = useState([]);
+            const [generatedDoc, setGeneratedDoc] = useState('');
+
+            const addChild = () => {
+                setChildren([...children, {
+                    id: Date.now(),
+                    name: '',
+                    dob: '',
+                    gender: 'Male'
+                }]);
+            };
+
+            const removeChild = (id) => {
+                setChildren(children.filter(child => child.id !== id));
+            };
+
+            const updateChild = (id, field, value) => {
+                setChildren(children.map(child => 
+                    child.id === id ? { ...child, [field]: value } : child
+                ));
+            };
+
+            const derivePronouns = (gender) => {
+                return gender === 'Male' 
+                    ? { subjective: 'he', possessive: 'his', objective: 'him' }
+                    : { subjective: 'she', possessive: 'her', objective: 'her' };
+            };
+
+            const getChildRelationship = (gender) => {
+                return gender === 'Male' ? 'son' : 'daughter';
+            };
+
+            const generateCompleteDocument = () => {
+                const pronouns = derivePronouns(formData.CLIENT_GENDER);
+                const snPronouns = derivePronouns(formData.SN_BENEFICIARY_GENDER);
+                const testatorTestatrix = formData.CLIENT_GENDER === 'Male' ? 'Testator' : 'Testatrix';
+                const clientName = formData.CLIENT_NAME.toUpperCase();
+                const county = formData.COUNTY.toUpperCase();
+                const execMonth = formData.EXEC_MONTH;
+                const execYear = formData.EXEC_YEAR;
+
+                let doc = '{\\rtf1\\ansi\\deff0\n';
+                doc += '{\\fonttbl{\\f0 Times New Roman;}}\n';
+                doc += '\\f0\\fs24\n\n';
+                
+                doc += '\\qc\\b\\fs28 LAST WILL AND TESTAMENT\\b0\\fs24\\par\n';
+                doc += '\\qc\\b OF\\b0\\par\n';
+                doc += '\\qc\\b ' + clientName + '\\b0\\par\n\\par\n';
+                doc += '\\ql\\par\n';
+                
+                doc += '\\b ARTICLE I\\b0\\par\n';
+                doc += '\\b IDENTIFICATION AND DECLARATIONS\\b0\\par\n\\par\n';
+                
+                doc += 'I, \\b ' + clientName + '\\b0, a resident of \\b ' + formData.COUNTY + '\\b0 County, Tennessee, being of sound mind and disposing memory, do hereby make, publish, and declare this to be my Last Will and Testament, hereby expressly revoking any and all Wills and Codicils by me at any time heretofore made.\\par\n\\par\n';
+                
+                if (children.length > 0) {
+                    doc += 'I declare that I have ';
+                    if (children.length === 1) {
+                        const child = children[0];
+                        const relationship = getChildRelationship(child.gender);
+                        doc += 'one child, my ' + relationship + ', \\b ' + child.name.toUpperCase() + '\\b0, born ' + child.dob;
+                    } else {
+                        doc += children.length + ' children: ';
+                        children.forEach((child, index) => {
+                            const relationship = getChildRelationship(child.gender);
+                            doc += 'my ' + relationship + ', \\b ' + child.name.toUpperCase() + '\\b0, born ' + child.dob;
+                            if (index < children.length - 2) {
+                                doc += '; ';
+                            } else if (index === children.length - 2) {
+                                doc += '; and ';
+                            }
+                        });
+                    }
+                    doc += '.\\par\n\\par\n';
+                }
+                
+                doc += '\\b ARTICLE II\\b0\\par\n';
+                doc += '\\b DISPOSITION OF ESTATE\\b0\\par\n\\par\n';
+                
+                doc += 'I give, devise, and bequeath all of my property, real, personal and mixed, of whatever kind and wherever situated, which I may own or have the right to dispose of at the time of my death, to my ' + (formData.CLIENT_GENDER === 'Male' ? 'wife' : 'husband') + ', \\b ' + formData.SN_BENEFICIARY.toUpperCase() + '\\b0, if ' + snPronouns.subjective + ' survives me by thirty (30) days.\\par\n\\par\n';
+                
+                if (children.length > 0) {
+                    doc += 'In the event my said ' + (formData.CLIENT_GENDER === 'Male' ? 'wife' : 'husband') + ' does not survive me by thirty (30) days, then I give, devise, and bequeath all of my property to ';
+                    
+                    if (formData.INCLUDE_TRUST_MINORS || formData.INCLUDE_TRUST_AGE_25) {
+                        doc += 'the Trustee hereinafter named, IN TRUST, for the benefit of my children: ';
+                    } else {
+                        doc += 'my children: ';
+                    }
+                    
+                    children.forEach((child, index) => {
+                        doc += '\\b ' + child.name.toUpperCase() + '\\b0';
+                        if (index < children.length - 2) {
+                            doc += ', ';
+                        } else if (index === children.length - 2) {
+                            doc += ', and ';
+                        }
+                    });
+                    
+                    doc += ', in equal shares, per stirpes';
+                    
+                    if (formData.INCLUDE_TRUST_MINORS || formData.INCLUDE_TRUST_AGE_25) {
+                        doc += ', to be held, administered, and distributed as provided in Article VI of this Will';
+                    }
+                    
+                    doc += '.\\par\n\\par\n';
+                } else {
+                    doc += 'In the event my said ' + (formData.CLIENT_GENDER === 'Male' ? 'wife' : 'husband') + ' does not survive me by thirty (30) days, then I give, devise, and bequeath all of my property, real, personal and mixed, of whatever kind and wherever situated, which I may own or have the right to dispose of at the time of my death, to my then living children, in equal shares, per stirpes.\\par\n\\par\n';
+                }
+                
+                doc += 'In the event that none of my children survive me by thirty (30) days, then I give, devise, and bequeath all of my property, real, personal and mixed, of whatever kind and wherever situated, which I may own or have the right to dispose of at the time of my death, to my then living heirs at law, per stirpes.\\par\n\\par\n';
+                
+                doc += '\\b ARTICLE III\\b0\\par\n';
+                doc += '\\b APPOINTMENT OF EXECUTOR' + (formData.IS_TRUST_WILL ? ' AND TRUSTEE' : '') + '\\b0\\par\n\\par\n';
+                
+                doc += 'I hereby nominate and appoint \\b ' + formData.PRIMARY_EXECUTOR.toUpperCase() + '\\b0 to serve as Executor';
+                if (formData.IS_TRUST_WILL) {
+                    doc += ' and Trustee';
+                }
+                doc += ' of this my Last Will and Testament. In the event \\b ' + formData.PRIMARY_EXECUTOR.toUpperCase() + '\\b0 fails to qualify or ceases to serve, then I nominate and appoint \\b ' + formData.ALTERNATE_EXECUTOR.toUpperCase() + '\\b0 to serve as alternate Executor';
+                if (formData.IS_TRUST_WILL) {
+                    doc += ' and Trustee';
+                }
+                doc += '.\\par\n\\par\n';
+                
+                doc += 'I direct that no bond or other security shall be required of any Executor';
+                if (formData.IS_TRUST_WILL) {
+                    doc += ' or Trustee';
+                }
+                doc += ' named herein. My Executor';
+                if (formData.IS_TRUST_WILL) {
+                    doc += ' and Trustee';
+                }
+                doc += ' shall have all powers granted to ';
+                if (formData.IS_TRUST_WILL) {
+                    doc += 'executors and trustees';
+                } else {
+                    doc += 'executors';
+                }
+                doc += ' under the laws of the State of Tennessee and such additional powers as are hereinafter set forth.\\par\n\\par\n';
+                
+                doc += '\\b ARTICLE IV\\b0\\par\n';
+                doc += '\\b POWERS OF EXECUTOR' + (formData.IS_TRUST_WILL ? ' AND TRUSTEE' : '') + '\\b0\\par\n\\par\n';
+                
+                doc += 'In addition to all powers granted by law, I grant to my Executor';
+                if (formData.IS_TRUST_WILL) {
+                    doc += ' and Trustee';
+                }
+                doc += ' the following powers, to be exercised in ' + pronouns.possessive + ' discretion, without prior court approval:\\par\n\\par\n';
+                
+                doc += 'A. To retain any property owned by me at my death for as long as ' + pronouns.subjective + ' deems advisable;\\par\n\\par\n';
+                doc += 'B. To sell, exchange, or otherwise dispose of any property, real or personal, at public or private sale, with or without notice, and upon such terms as ' + pronouns.subjective + ' deems proper;\\par\n\\par\n';
+                doc += 'C. To invest and reinvest in any property, real or personal, including stocks, bonds, and mutual funds, without regard to any law or rule of court restricting investments by fiduciaries;\\par\n\\par\n';
+                doc += 'D. To borrow money for any estate purpose and to mortgage or pledge estate property as security;\\par\n\\par\n';
+                doc += 'E. To continue, operate, or liquidate any business which I may own at the time of my death;\\par\n\\par\n';
+                doc += 'F. To make distributions in cash or in kind, or partly in each, at valuations determined by my Executor';
+                if (formData.IS_TRUST_WILL) {
+                    doc += ' or Trustee';
+                }
+                doc += ';\\par\n\\par\n';
+                doc += 'G. To make any tax elections and allocations ' + pronouns.subjective + ' deems advisable, including but not limited to elections under the Internal Revenue Code;\\par\n\\par\n';
+                doc += 'H. To employ accountants, attorneys, investment advisors, and other agents and to pay their reasonable compensation from estate assets; and\\par\n\\par\n';
+                doc += 'I. To do all other acts which ' + pronouns.subjective + ' deems necessary or appropriate for the proper administration of my estate';
+                if (formData.IS_TRUST_WILL) {
+                    doc += ' and any trusts created hereunder';
+                }
+                doc += '.\\par\n\\par\n';
+                
+                if (formData.INCLUDE_GUARDIAN) {
+                    doc += '\\b ARTICLE V\\b0\\par\n';
+                    doc += '\\b APPOINTMENT OF GUARDIAN\\b0\\par\n\\par\n';
+                    doc += 'In the event I have minor children at the time of my death, I nominate and appoint \\b ' + formData.SN_BENEFICIARY.toUpperCase() + '\\b0 as Guardian of the person and property of my minor children. If ' + snPronouns.subjective + ' fails to qualify or ceases to serve, I nominate and appoint \\b ' + formData.PRIMARY_EXECUTOR.toUpperCase() + '\\b0 as alternate Guardian.\\par\n\\par\n';
+                    doc += 'I request that no bond or other security be required of any Guardian named herein.\\par\n\\par\n';
+                }
+                
+                if (formData.INCLUDE_TRUST_MINORS || formData.INCLUDE_TRUST_AGE_25) {
+                    const articleNum = formData.INCLUDE_GUARDIAN ? 'VI' : 'V';
+                    doc += '\\b ARTICLE ' + articleNum + '\\b0\\par\n';
+                    doc += '\\b TRUST PROVISIONS\\b0\\par\n\\par\n';
+                    doc += 'If any beneficiary under this Will has not attained the age of ' + formData.TRUST_AGE_DISTRIBUTION + ' years at the time of my death or at the time such beneficiary becomes entitled to receive a distribution, the share of such beneficiary shall be held, administered, and distributed by the Trustee as follows:\\par\n\\par\n';
+                    doc += 'A. \\b Distributions for Health, Education, Maintenance, and Support:\\b0 The Trustee may distribute to or for the benefit of such beneficiary so much of the net income and principal as the Trustee deems necessary or advisable for the beneficiary\\'s health, education, maintenance, and support.\\par\n\\par\n';
+                    doc += 'B. \\b Age-Based Distribution:\\b0 When the beneficiary attains the age of ' + formData.TRUST_AGE_DISTRIBUTION + ' years, the Trustee shall distribute the remaining principal and any undistributed income to the beneficiary, and the trust shall terminate as to that beneficiary\\'s share.\\par\n\\par\n';
+                    doc += 'C. \\b Death Before Distribution:\\b0 If a beneficiary dies before receiving full distribution of ' + pronouns.possessive + ' share, the remaining balance shall be distributed to such beneficiary\\'s then living issue, per stirpes, or if none, then to my then living issue, per stirpes.\\par\n\\par\n';
+                    doc += 'D. \\b Trustee Discretion:\\b0 The Trustee shall have absolute discretion in making distributions and need not equalize distributions among beneficiaries.\\par\n\\par\n';
+                }
+                
+                doc += '\\b IN WITNESS WHEREOF\\b0, I have hereunto set my hand and seal this \\ul               \\ul0  day of \\b ' + execMonth + '\\b0, \\b ' + execYear + '\\b0, hereby declaring and publishing this instrument as my Last Will and Testament in the presence of the undersigned attesting witnesses, whom I have requested to attest this, my Last Will and Testament, as witnesses, in accordance with Tennessee Code Annotated Section 32-1-104 and Tennessee Code Annotated Section 32-2-110 and which is fully incorporated as a part of this my Last Will and Testament.\\par\n\\par\n\\par\n';
+                
+                doc += '\\ul                                                                       \\ul0\\par\n';
+                doc += '\\b ' + clientName + '\\b0, \\i ' + testatorTestatrix + '\\i0\\par\n\\par\n\\par\n';
+                
+                doc += '\\b WITNESS ATTESTATION\\b0\\par\n\\par\n';
+                doc += '\\b WITNESS (PRINT NAME):\\b0  \\ul                                                  \\ul0\\par\n\\par\n';
+                doc += '\\b WITNESS (SIGNATURE):\\b0  \\ul                                                  \\ul0\\par\n\\par\n';
+                doc += '\\b WITNESS (PRINT NAME):\\b0  \\ul                                                  \\ul0\\par\n\\par\n';
+                doc += '\\b WITNESS (SIGNATURE):\\b0  \\ul                                                  \\ul0\\par\n\\par\n\\par\n';
+                
+                doc += '\\b SELF-PROVING AFFIDAVIT\\b0\\par\n\\par\n';
+                doc += '\\b STATE OF TENNESSEE\\b0\\par\n';
+                doc += '\\b COUNTY OF ' + county + '\\b0\\par\n\\par\n';
+                
+                doc += 'We, the undersigned, being first duly sworn, make oath that \\b ' + clientName + '\\b0 on the day and date above written, declared and signified to us that the above instrument is ' + pronouns.possessive + ' Last Will and Testament, that ' + pronouns.subjective + ' then signed said instrument in our sight and presence; that we, at ' + pronouns.possessive + ' request and in ' + pronouns.possessive + ' sight and presence and in the sight and presence of each other, then subscribed our names thereto as attesting witnesses; that at the time of execution, the ' + testatorTestatrix + ' was more than eighteen years of age, of sound mind and disposing memory, and did not appear under any undue influence; and that the undersigned, each being more than eighteen years of age, make and sign this affidavit at the ' + testatorTestatrix + ' request on the day and date above written.\\par\n\\par\n\\par\n';
+                
+                doc += '\\b WITNESS (SIGNATURE):\\b0  \\ul                                                  \\ul0\\par\n\\par\n';
+                doc += '\\b WITNESS (SIGNATURE):\\b0  \\ul                                                  \\ul0\\par\n\\par\n\\par\n';
+                
+                doc += 'Sworn to and subscribed to before me, this \\ul               \\ul0  day of \\b ' + execMonth + '\\b0, \\b ' + execYear + '\\b0.\\par\n\\par\n\\par\n';
+                doc += '\\ul                                                                       \\ul0\\par\n';
+                doc += '\\i Notary Public\\i0\\par\n\\par\n';
+                doc += 'My Commission Expires: \\ul                              \\ul0\\par\n';
+                
+                doc += '}';
+                
+                return doc;
+            };
+
+            const handleGenerate = () => {
+                const doc = generateCompleteDocument();
+                setGeneratedDoc(doc);
+            };
+
+            const handleDownload = () => {
+                const blob = new Blob([generatedDoc], { type: 'application/rtf' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'Will_' + formData.CLIENT_NAME.replace(/\s+/g, '_') + '_' + Date.now() + '.rtf';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            };
+
+            const handleInputChange = (e) => {
+                const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+                setFormData({
+                    ...formData,
+                    [e.target.name]: value
+                });
+            };
+
+            return (
+                React.createElement('div', { className: 'min-h-screen bg-gray-100 py-8 px-4' },
+                    React.createElement('div', { className: 'max-w-4xl mx-auto' },
+                        React.createElement('div', { className: 'bg-white rounded-lg shadow-lg p-8' },
+                            React.createElement('h1', { className: 'text-3xl font-bold text-gray-900 mb-2' }, 'Tennessee Will Generator'),
+                            React.createElement('p', { className: 'text-gray-600 mb-8' }, 'Muletown Law, P.C.'),
+                            
+                            React.createElement('div', { className: 'space-y-8' },
+                                
+                                React.createElement('div', { className: 'border-2 border-blue-500 rounded-lg p-6 bg-blue-50' },
+                                    React.createElement('h2', { className: 'text-xl font-bold text-gray-900 mb-4' }, 'Document Configuration'),
+                                    React.createElement('p', { className: 'text-sm text-gray-600 mb-4' }, 'Select which clauses to include in this will'),
+                                    
+                                    React.createElement('div', { className: 'space-y-3' },
+                                        React.createElement('label', { className: 'flex items-center space-x-3' },
+                                            React.createElement('input', {
+                                                type: 'checkbox',
+                                                name: 'IS_TRUST_WILL',
+                                                checked: formData.IS_TRUST_WILL,
+                                                onChange: handleInputChange,
+                                                className: 'w-5 h-5 text-blue-600 rounded'
+                                            }),
+                                            React.createElement('span', { className: 'font-medium' }, 'This is a Trust Will')
+                                        ),
+                                        
+                                        React.createElement('label', { className: 'flex items-center space-x-3' },
+                                            React.createElement('input', {
+                                                type: 'checkbox',
+                                                name: 'INCLUDE_GUARDIAN',
+                                                checked: formData.INCLUDE_GUARDIAN,
+                                                onChange: handleInputChange,
+                                                className: 'w-5 h-5 text-blue-600 rounded'
+                                            }),
+                                            React.createElement('span', { className: 'font-medium' }, 'Include Guardian Appointment (for minor children under 18)')
+                                        ),
+                                        
+                                        React.createElement('label', { className: 'flex items-center space-x-3' },
+                                            React.createElement('input', {
+                                                type: 'checkbox',
+                                                name: 'INCLUDE_TRUST_MINORS',
+                                                checked: formData.INCLUDE_TRUST_MINORS,
+                                                onChange: handleInputChange,
+                                                className: 'w-5 h-5 text-blue-600 rounded'
+                                            }),
+                                            React.createElement('span', { className: 'font-medium' }, 'Include Trust Provisions for Minors')
+                                        ),
+                                        
+                                        React.createElement('label', { className: 'flex items-center space-x-3' },
+                                            React.createElement('input', {
+                                                type: 'checkbox',
+                                                name: 'INCLUDE_TRUST_AGE_25',
+                                                checked: formData.INCLUDE_TRUST_AGE_25,
+                                                onChange: handleInputChange,
+                                                className: 'w-5 h-5 text-blue-600 rounded'
+                                            }),
+                                            React.createElement('span', { className: 'font-medium' }, 'Include Trust Provisions (age-based distribution)')
+                                        ),
+                                        
+                                        (formData.INCLUDE_TRUST_MINORS || formData.INCLUDE_TRUST_AGE_25) &&
+                                            React.createElement('div', { className: 'ml-8 mt-2' },
+                                                React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Distribution Age'),
+                                                React.createElement('input', {
+                                                    type: 'number',
+                                                    name: 'TRUST_AGE_DISTRIBUTION',
+                                                    value: formData.TRUST_AGE_DISTRIBUTION,
+                                                    onChange: handleInputChange,
+                                                    className: 'w-32 px-3 py-2 border border-gray-300 rounded-md',
+                                                    min: '18',
+                                                    max: '35'
+                                                }),
+                                                React.createElement('span', { className: 'ml-2 text-sm text-gray-600' }, 'years old')
+                                            )
+                                    )
+                                ),
+                                
+                                React.createElement('div', null,
+                                    React.createElement('h2', { className: 'text-xl font-bold text-gray-900 mb-4' }, 'Client Information'),
+                                    React.createElement('div', { className: 'space-y-4' },
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Client Name'),
+                                            React.createElement('input', {
+                                                type: 'text',
+                                                name: 'CLIENT_NAME',
+                                                value: formData.CLIENT_NAME,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500',
+                                                placeholder: 'Enter client full name'
+                                            })
+                                        ),
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Client Gender'),
+                                            React.createElement('select', {
+                                                name: 'CLIENT_GENDER',
+                                                value: formData.CLIENT_GENDER,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500'
+                                            },
+                                                React.createElement('option', { value: 'Female' }, 'Female'),
+                                                React.createElement('option', { value: 'Male' }, 'Male')
+                                            )
+                                        ),
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Spouse Name'),
+                                            React.createElement('input', {
+                                                type: 'text',
+                                                name: 'SN_BENEFICIARY',
+                                                value: formData.SN_BENEFICIARY,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500',
+                                                placeholder: 'Enter spouse full name'
+                                            })
+                                        ),
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Spouse Gender'),
+                                            React.createElement('select', {
+                                                name: 'SN_BENEFICIARY_GENDER',
+                                                value: formData.SN_BENEFICIARY_GENDER,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500'
+                                            },
+                                                React.createElement('option', { value: 'Male' }, 'Male'),
+                                                React.createElement('option', { value: 'Female' }, 'Female')
+                                            )
+                                        )
+                                    )
+                                ),
+                                
+                                React.createElement('div', null,
+                                    React.createElement('div', { className: 'flex items-center justify-between mb-4' },
+                                        React.createElement('h2', { className: 'text-xl font-bold text-gray-900' }, 'Children'),
+                                        React.createElement('button', {
+                                            onClick: addChild,
+                                            className: 'bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm font-medium'
+                                        }, '+ Add Child')
+                                    ),
+                                    
+                                    children.length === 0
+                                        ? React.createElement('p', { className: 'text-gray-500 text-sm italic' }, 'No children added yet. Click "Add Child" to begin.')
+                                        : React.createElement('div', { className: 'space-y-4' },
+                                            children.map((child, index) =>
+                                                React.createElement('div', { key: child.id, className: 'border border-gray-300 rounded-lg p-4 bg-gray-50' },
+                                                    React.createElement('div', { className: 'flex items-center justify-between mb-3' },
+                                                        React.createElement('h3', { className: 'font-medium text-gray-900' }, 'Child ' + (index + 1)),
+                                                        React.createElement('button', {
+                                                            onClick: () => removeChild(child.id),
+                                                            className: 'text-red-600 hover:text-red-800 text-sm font-medium'
+                                                        }, 'Remove')
+                                                    ),
+                                                    React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-3 gap-3' },
+                                                        React.createElement('div', null,
+                                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Full Name'),
+                                                            React.createElement('input', {
+                                                                type: 'text',
+                                                                value: child.name,
+                                                                onChange: (e) => updateChild(child.id, 'name', e.target.value),
+                                                                className: 'w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500',
+                                                                placeholder: 'Child full name'
+                                                            })
+                                                        ),
+                                                        React.createElement('div', null,
+                                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Date of Birth'),
+                                                            React.createElement('input', {
+                                                                type: 'date',
+                                                                value: child.dob,
+                                                                onChange: (e) => updateChild(child.id, 'dob', e.target.value),
+                                                                className: 'w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500'
+                                                            })
+                                                        ),
+                                                        React.createElement('div', null,
+                                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-1' }, 'Gender'),
+                                                            React.createElement('select', {
+                                                                value: child.gender,
+                                                                onChange: (e) => updateChild(child.id, 'gender', e.target.value),
+                                                                className: 'w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500'
+                                                            },
+                                                                React.createElement('option', { value: 'Male' }, 'Male'),
+                                                                React.createElement('option', { value: 'Female' }, 'Female')
+                                                            )
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                ),
+                                
+                                React.createElement('div', null,
+                                    React.createElement('h2', { className: 'text-xl font-bold text-gray-900 mb-4' }, 'Executor Information'),
+                                    React.createElement('div', { className: 'space-y-4' },
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Primary Executor'),
+                                            React.createElement('input', {
+                                                type: 'text',
+                                                name: 'PRIMARY_EXECUTOR',
+                                                value: formData.PRIMARY_EXECUTOR,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500',
+                                                placeholder: 'Enter primary executor name'
+                                            })
+                                        ),
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Alternate Executor'),
+                                            React.createElement('input', {
+                                                type: 'text',
+                                                name: 'ALTERNATE_EXECUTOR',
+                                                value: formData.ALTERNATE_EXECUTOR,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500',
+                                                placeholder: 'Enter alternate executor name'
+                                            })
+                                        )
+                                    )
+                                ),
+                                
+                                React.createElement('div', null,
+                                    React.createElement('h2', { className: 'text-xl font-bold text-gray-900 mb-4' }, 'Execution Details'),
+                                    React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-3 gap-4' },
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'County'),
+                                            React.createElement('input', {
+                                                type: 'text',
+                                                name: 'COUNTY',
+                                                value: formData.COUNTY,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500',
+                                                placeholder: 'Enter county'
+                                            })
+                                        ),
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Execution Month'),
+                                            React.createElement('input', {
+                                                type: 'text',
+                                                name: 'EXEC_MONTH',
+                                                value: formData.EXEC_MONTH,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500',
+                                                placeholder: 'e.g., October'
+                                            })
+                                        ),
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Execution Year'),
+                                            React.createElement('input', {
+                                                type: 'text',
+                                                name: 'EXEC_YEAR',
+                                                value: formData.EXEC_YEAR,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500',
+                                                placeholder: 'e.g., 2025'
+                                            })
+                                        )
+                                    )
+                                ),
+                                
+                                React.createElement('div', { className: 'flex gap-4 pt-4' },
+                                    React.createElement('button', {
+                                        onClick: handleGenerate,
+                                        className: 'flex-1 bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 font-medium'
+                                    }, 'Generate Document'),
+                                    
+                                    generatedDoc &&
+                                        React.createElement('button', {
+                                            onClick: handleDownload,
+                                            className: 'flex-1 bg-green-600 text-white px-6 py-3 rounded-md hover:bg-green-700 font-medium'
+                                        }, 'Download RTF')
+                                ),
+                                
+                                generatedDoc &&
+                                    React.createElement('div', { className: 'mt-8 p-4 bg-green-50 border border-green-200 rounded-md' },
+                                        React.createElement('h3', { className: 'text-lg font-medium text-green-900 mb-2' }, '✓ Document Generated Successfully!'),
+                                        React.createElement('p', { className: 'text-sm text-green-700' }, 'Click "Download RTF" to save the complete will document.'),
+                                        children.length > 0 &&
+                                            React.createElement('p', { className: 'text-sm text-green-700 mt-1' },
+                                                'Includes ' + children.length + ' ' + (children.length === 1 ? 'child' : 'children') + ' with proper pronouns.'
+                                            )
+                                    )
+                            )
+                        )
+                    )
+                )
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement(WillGenerator));
+    </script>
+</body>
+</html>

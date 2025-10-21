@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tennessee Power of Attorney Generator</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script>
+        const { useState } = React;
+
+        function POAGenerator() {
+            const [formData, setFormData] = useState({
+                CLIENT_NAME: '',
+                CLIENT_GENDER: 'Female',
+                COUNTY: 'Maury',
+                AIF_RELATIONSHIP: '',
+                AIF_NAME: '',
+                ALTERNATE_AIF_RELATIONSHIP: '',
+                ALTERNATE_AIF_NAME: '',
+                EXEC_MONTH: 'October',
+                EXEC_YEAR: '2025'
+            });
+
+            const [generatedDoc, setGeneratedDoc] = useState('');
+
+            const derivePronouns = (gender) => {
+                return gender === 'Male' 
+                    ? { subjective: 'he', possessive: 'his', objective: 'him' }
+                    : { subjective: 'she', possessive: 'her', objective: 'her' };
+            };
+
+            const generateCompleteDocument = () => {
+                const pronouns = derivePronouns(formData.CLIENT_GENDER);
+                const clientName = formData.CLIENT_NAME.toUpperCase();
+                const county = formData.COUNTY.toUpperCase();
+
+                let doc = '{\\rtf1\\ansi\\deff0\n';
+                doc += '{\\fonttbl{\\f0 Times New Roman;}}\n';
+                doc += '{\\footer\\pard\\qc\\plain\\f0\\fs24 Page {\\field{\\*\\fldinst PAGE}}{\\fldrslt 1}}\\par\\pard\\qr\\fs24 _______________\\par}\n';
+                doc += '\\f0\\fs24\n\n';
+                
+                // Header - left aligned - FIXED: "Prepared by:"
+                doc += '\\ql\\b Prepared by:\\b0\\par\n';
+                doc += 'Muletown Law, P.C.\\par\n';
+                doc += '1109 S Garden Street\\par\n';
+                doc += 'Columbia, TN 38401\\par\n\\par\n';
+                
+                // Title - centered, bold
+                doc += '\\qc\\b DURABLE GENERAL POWER OF ATTORNEY\\b0\\par\n\\par\n';
+                doc += '\\ql\n';
+                
+                // Opening paragraph - FIXED: Space between county and "County"
+                doc += 'I, \\b ' + clientName + '\\b0, a resident of \\b ' + formData.COUNTY + ' County\\b0, Tennessee do hereby make, constitute and appoint my ' + formData.AIF_RELATIONSHIP + ', \\b ' + formData.AIF_NAME.toUpperCase() + '\\b0 as my attorney-in-fact. If my said ' + formData.AIF_RELATIONSHIP + ' is unwilling or unable to serve in said capacity, then I appoint my ' + formData.ALTERNATE_AIF_RELATIONSHIP + ', \\b ' + formData.ALTERNATE_AIF_NAME.toUpperCase() + '\\b0, as my alternate attorney-in-fact under the Uniform Durable Power of Attorney Act (T.C.A. \\u167  34-6-101, et seq.) and in my name and stead to:\\par\n\\par\n';
+                
+                // ARTICLE I - FIXED: Bold, centered, small caps
+                doc += '\\qc\\b\\scaps I. GENERAL AUTHORITY\\scaps0\\b0\\par\n\\par\n';
+                doc += '\\ql\n';
+                
+                doc += '1.\\tab Generally, do, sign or perform in the principal' + "'" + 's name, place and stead any act, deed, matter or thing whatsoever, that ought to be done, signed or performed, or that, in the opinion of the attorney-in-fact, ought to be done, signed or performed in and about the premises, of every nature and kind whatsoever, to all intents and purposes whatsoever, as fully and effectually as the principal could do if personally present and acting. The enumeration of specific powers hereunder shall not in any way limit the general powers conferred herein;\\par\n\\par\n';
+                
+                // ARTICLE II - FIXED: Bold, centered, small caps
+                doc += '\\qc\\b\\scaps II. PROPERTY YOU OWN (Real Estate and Personal Tangible Property)\\scaps0\\b0\\par\n\\par\n';
+                doc += '\\ql\n';
+                
+                doc += '2.\\tab Buy, sell, lease, alter, maintain, pledge or in any way deal with real and personal property and sign each instrument necessary or advisable to complete any real or personal property transaction, including, but not limited to, deeds, deeds of trust, closing statements, options, notes and bills of sale;\\par\n\\par\n';
+                
+                doc += '3.\\tab Have free and private access to any safe deposit box in the principal' + "'" + 's individual name, alone or with others, in any bank, including authority to have it drilled, with full right to deposit and withdraw from the safe deposit box or to give full discharge for the safe deposit box;\\par\n\\par\n';
+                
+                // ARTICLE III - FIXED: Bold, centered, small caps
+                doc += '\\qc\\b\\scaps III. PROPERTY YOU CONTROL (Business Interests and Trusts)\\scaps0\\b0\\par\n\\par\n';
+                doc += '\\ql\n';
+                
+                doc += '4.\\tab Engage in and transact any and all lawful business of whatever nature or kind for the principal and in the principal' + "'" + 's name, whether as partner, joint adventurer, stockholder, or in any other manner or form, and vote any stock or enter voting trusts;\\par\n\\par\n';
+                
+                doc += '5.\\tab Transfer any property owned by the principal to any revocable trust created by the principal with provisions for the principal' + "'" + 's care and support;\\par\n\\par\n';
+                
+                // ARTICLE IV - FIXED: Bold, centered, small caps
+                doc += '\\qc\\b\\scaps IV. PROPERTY IN ACCOUNTS (Checking, Savings, Retirement, Investment)\\scaps0\\b0\\par\n\\par\n';
+                doc += '\\ql\n';
+                
+                doc += '6.\\tab Receive from or disburse to any source whatever moneys through checking or savings or other accounts or otherwise, endorse, sign and issue checks, withdrawal receipts or any other instrument, and open or close any accounts in the principal' + "'" + 's name alone or jointly with any other person;\\par\n\\par\n';
+                
+                doc += '7.\\tab Establish, utilize and terminate checking and savings accounts, money market accounts and agency accounts with financial institutions of all kinds, including securities brokers and corporate fiduciaries;\\par\n\\par\n';
+                
+                doc += '8.\\tab Invest or reinvest each item of money or other property and lend money or property upon such terms and conditions and with such security as the principal' + "'" + 's attorney-in-fact may deem appropriate, or renew, extend, or modify loans, all in accordance with the fiduciary standard of T.C.A. \\u167  35-3-117;\\par\n\\par\n';
+                
+                doc += '9.\\tab Buy United States government bonds redeemable at par in payment of any United States estate taxes imposed at principal' + "'" + 's death;\\par\n\\par\n';
+                
+                doc += '10.\\tab Create, contribute to, borrow from and otherwise deal with an employee benefit plan or individual retirement account for the principal' + "'" + 's benefit, select any payment option under any employee benefit plan or individual retirement account in which the principal is a participant or change options the principal has selected, make \\"roll-overs\\" of plan benefits into other retirement plans, and apply for and receive payments and benefits;\\par\n\\par\n';
+                
+                // ARTICLE V - FIXED: Bold, centered, small caps
+                doc += '\\qc\\b\\scaps V. BORROWING AND CREDIT\\scaps0\\b0\\par\n\\par\n';
+                doc += '\\ql\n';
+                
+                doc += '11.\\tab Borrow money for any of the purposes described herein, and secure such borrowings in such manner as the principal' + "'" + 's attorney-in-fact shall deem appropriate, and use any credit card held in the principal' + "'" + 's name for any of the purposes described therein;\\par\n\\par\n';
+                
+                // ARTICLE VI - FIXED: Bold, centered, small caps
+                doc += '\\qc\\b\\scaps VI. INSURANCE\\scaps0\\b0\\par\n\\par\n';
+                doc += '\\ql\n';
+                
+                doc += '12.\\tab Acquire, maintain, cancel or in any manner deal with any policy of life, accident, disability, hospitalization, medical or casualty insurance, and prosecute each claim for benefits due under any policy;\\par\n\\par\n';
+                
+                // ARTICLE VII - FIXED: Bold, centered, small caps
+                doc += '\\qc\\b\\scaps VII. TAX AND GOVERNMENT BENEFITS\\scaps0\\b0\\par\n\\par\n';
+                doc += '\\ql\n';
+                
+                doc += '13.\\tab Make, sign and file each income, gift, property or any other tax return or declaration required by the United States or any state, county, municipality or other legally constituted authority;\\par\n\\par\n';
+                
+                doc += '14.\\tab Receive and give receipt for any money or other obligation due or to become due to the principal from the United States, or any agency or subdivision of the United States, and to act as representative payee for any payment to which the principal may be entitled, and effect redemption of any bond or other security in which the United States, or any agency or subdivision of the United States, is the obligor or payor, and give full discharge therefor;\\par\n\\par\n';
+                
+                // ARTICLE VIII - FIXED: Bold, centered, small caps
+                doc += '\\qc\\b\\scaps VIII. PERSONAL MATTERS\\scaps0\\b0\\par\n\\par\n';
+                doc += '\\ql\n';
+                
+                doc += '15.\\tab Provide for the support and protection of the principal, or of the principal' + "'" + 's spouse, or of any minor child of the principal or of the principal' + "'" + 's spouse dependent upon the principal, including, without limitation, provision for food, lodging, housing, medical services, recreation and travel;\\par\n\\par\n';
+                
+                doc += '16.\\tab Pay dues to any club or organization to which the principal belongs, and make charitable contributions in fulfillment of any charitable pledge made by the principal;\\par\n\\par\n';
+                
+                doc += '17.\\tab Make advance arrangements for the principal' + "'" + 's funeral and burial, including the purchase of a burial plot and marker, if the principal has not already done so.\\par\n\\par\n';
+                
+                doc += '18.\\tab To access, handle, distribute and dispose of my digital assets. For purposes of this provision, digital assets include files stored on my digital devices, including but not limited to, desktops, tablets, peripherals, storage devices, mobile telephones, smart phones and any similar digital device which currently exists or may exist as technology develops or such comparable items as technology develops. The term \\"digital assets\\" also includes but is not limited to emails received, email accounts, digital music, digital photographs, digital videos, software licenses, social network accounts, file sharing accounts, financial accounts, domain registrations, DNS service accounts, web hosting accounts, tax preparation service accounts, online stores, affiliate programs, other online accounts and similar digital items which currently exist or may exist as technology develops or such comparable items as technology develops, regardless of the ownership of the physical device upon which the digital item is stored.\\par\n\\par\n';
+                
+                // ARTICLE IX - FIXED: Bold, centered, small caps
+                doc += '\\qc\\b\\scaps IX. LEGAL AND ADMINISTRATIVE MATTERS\\scaps0\\b0\\par\n\\par\n';
+                doc += '\\ql\n';
+                
+                doc += '19.\\tab Sue, defend or compromise suits and legal actions, and employ counsel in connection with the suits and legal actions, including the power to seek a declaratory judgment interpreting this power of attorney, or a mandatory injunction requiring compliance with the instructions of the principal' + "'" + 's attorney-in-fact, or actual and punitive damages against any person failing or refusing to follow the instructions of the principal' + "'" + 's attorney-in-fact;\\par\n\\par\n';
+                
+                doc += '20.\\tab Contract for or employ agents, accountants, advisors, attorneys and others for services in connection with the performance by the principal' + "'" + 's attorney-in-fact of any powers herein;\\par\n\\par\n';
+                
+                doc += '21.\\tab Reimburse the attorney-in-fact or others for all reasonable costs and expenses actually incurred and paid by such persons on behalf of the principal;\\par\n\\par\n';
+                
+                doc += '22.\\tab Execute other Power of Attorney forms on behalf of the principal that may be required by the internal revenue service, financial or brokerage institutions, or others, naming the attorney-in-fact hereunder as attorney-in-fact for the principal on such additional forms;\\par\n\\par\n';
+                
+                doc += '23.\\tab Request, receive and review any information, verbal or written, regarding the principal' + "'" + 's affairs or the principal' + "'" + 's physical or mental health, including legal, medical and hospital records, execute any releases or other documents that may be required in order to obtain such information, and disclose such information to such persons, organizations, firms or corporations as the principal' + "'" + 's attorney-in-fact shall deem appropriate; and\\par\n\\par\n';
+                
+                // Closing paragraphs
+                doc += 'The above powers include those specified in T.C.A. \\u167  34-6-109; and without the necessity of obtaining any judicial authorization or approval, those powers shall be vested by me into my attorney-in-fact, who shall use their best judgment and discretion on my behalf to exercise them.\\par\n\\par\n';
+                
+                doc += 'My attorney-in-fact may do, execute, and perform all and every other act or acts which may be necessary or incidental to any of the matters mentioned above or deemed desirable in connection with any such matters by my said attorney-in-fact, as fully and completely as I might do myself and I do hereby ratify and confirm any acts done by my said attorney-in-fact within the premises. This Power of Attorney shall not be affected by subsequent disability or incapacity of the principal as provided by T.C.A. \\u167  34-6-101 et seq., and shall remain in full force and effect in spite of such disability or incapacity, and in the event a proceeding be brought for the appointment of a Conservator or Guardian for my Estate, I request the Court to appoint my ' + formData.AIF_RELATIONSHIP + ', \\b ' + formData.AIF_NAME.toUpperCase() + '\\b0, as my Conservator or Guardian. If my said ' + formData.AIF_RELATIONSHIP + ' is unwilling or unable to serve in said capacity, then I request the Court to appoint ' + formData.ALTERNATE_AIF_RELATIONSHIP + ', \\b ' + formData.ALTERNATE_AIF_NAME.toUpperCase() + '\\b0, as my Conservator or Guardian. This Power of Attorney shall remain in full force and effect unless revoked by me by written instrument which shall be recorded in the Register' + "'" + 's Office of Maury County, Tennessee.\\par\n\\par\n';
+                
+                // Signature section
+                doc += 'WITNESS MY SIGNATURE THIS _________ DAY OF \\b ' + formData.EXEC_MONTH.toUpperCase() + '\\b0, \\b ' + formData.EXEC_YEAR + '\\b0.\\par\n\\par\n\\par\n';
+                
+                doc += '\\ul                                                  \\ul0\\par\n';
+                doc += '\\b ' + clientName + '\\b0\\par\n\\par\n\\par\n';
+                
+                // Notary section
+                doc += '\\b STATE OF TENNESSEE\\b0\\par\n';
+                doc += '\\b COUNTY OF ' + county + '\\b0\\par\n\\par\n';
+                
+                doc += 'Personally, appeared before me, the undersigned a Notary Public in and for the state and county aforesaid, the within named \\b ' + clientName + '\\b0 with whom I am personally acquainted, and who acknowledged that ' + pronouns.subjective + ' executed the foregoing instrument for the purposes therein contained.\\par\n\\par\n';
+                
+                doc += 'WITNESS my hand and official seal at office in Maury County, Tennessee, this _________ day of \\b ' + formData.EXEC_MONTH.toUpperCase() + '\\b0, \\b ' + formData.EXEC_YEAR + '\\b0.\\par\n\\par\n\\par\n';
+                
+                doc += '\\ul                                                  \\ul0\\par\n';
+                doc += '\\b NOTARY PUBLIC\\b0\\par\n\\par\n\\par\n';
+                doc += 'My Commission Expires: \\ul                    \\ul0\\par\n';
+                
+                doc += '}';
+                
+                return doc;
+            };
+
+            const handleGenerate = () => {
+                const doc = generateCompleteDocument();
+                setGeneratedDoc(doc);
+            };
+
+            const handleDownload = () => {
+                const blob = new Blob([generatedDoc], { type: 'application/rtf' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'POA_' + formData.CLIENT_NAME.replace(/\s+/g, '_') + '_' + Date.now() + '.rtf';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            };
+
+            const handleInputChange = (e) => {
+                setFormData({
+                    ...formData,
+                    [e.target.name]: e.target.value
+                });
+            };
+
+            return (
+                React.createElement('div', { className: 'min-h-screen bg-gray-100 py-8 px-4' },
+                    React.createElement('div', { className: 'max-w-4xl mx-auto' },
+                        React.createElement('div', { className: 'bg-white rounded-lg shadow-lg p-8' },
+                            React.createElement('h1', { className: 'text-3xl font-bold text-gray-900 mb-2' }, 'Tennessee Power of Attorney Generator'),
+                            React.createElement('p', { className: 'text-gray-600 mb-8' }, 'Muletown Law, P.C.'),
+                            
+                            React.createElement('div', { className: 'space-y-8' },
+                                
+                                React.createElement('div', null,
+                                    React.createElement('h2', { className: 'text-xl font-bold text-gray-900 mb-4' }, 'Client Information'),
+                                    React.createElement('div', { className: 'space-y-4' },
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Client Name'),
+                                            React.createElement('input', {
+                                                type: 'text',
+                                                name: 'CLIENT_NAME',
+                                                value: formData.CLIENT_NAME,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500',
+                                                placeholder: 'Enter client full name'
+                                            })
+                                        ),
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Client Gender'),
+                                            React.createElement('select', {
+                                                name: 'CLIENT_GENDER',
+                                                value: formData.CLIENT_GENDER,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500'
+                                            },
+                                                React.createElement('option', { value: 'Female' }, 'Female'),
+                                                React.createElement('option', { value: 'Male' }, 'Male')
+                                            )
+                                        ),
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'County'),
+                                            React.createElement('input', {
+                                                type: 'text',
+                                                name: 'COUNTY',
+                                                value: formData.COUNTY,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500',
+                                                placeholder: 'Enter county'
+                                            })
+                                        )
+                                    )
+                                ),
+                                
+                                React.createElement('div', null,
+                                    React.createElement('h2', { className: 'text-xl font-bold text-gray-900 mb-4' }, 'Attorney-in-Fact Information'),
+                                    React.createElement('div', { className: 'space-y-4' },
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Attorney-in-Fact Name'),
+                                            React.createElement('input', {
+                                                type: 'text',
+                                                name: 'AIF_NAME',
+                                                value: formData.AIF_NAME,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500',
+                                                placeholder: 'Usually the client' + "'" + 's spouse'
+                                            })
+                                        ),
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Attorney-in-Fact Relationship'),
+                                            React.createElement('input', {
+                                                type: 'text',
+                                                name: 'AIF_RELATIONSHIP',
+                                                value: formData.AIF_RELATIONSHIP,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500',
+                                                placeholder: 'e.g., wife, husband, daughter, son'
+                                            })
+                                        ),
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Alternate Attorney-in-Fact Name'),
+                                            React.createElement('input', {
+                                                type: 'text',
+                                                name: 'ALTERNATE_AIF_NAME',
+                                                value: formData.ALTERNATE_AIF_NAME,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500',
+                                                placeholder: 'Enter alternate attorney-in-fact name'
+                                            })
+                                        ),
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Alternate Attorney-in-Fact Relationship'),
+                                            React.createElement('input', {
+                                                type: 'text',
+                                                name: 'ALTERNATE_AIF_RELATIONSHIP',
+                                                value: formData.ALTERNATE_AIF_RELATIONSHIP,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500',
+                                                placeholder: 'e.g., son, daughter, sibling'
+                                            })
+                                        )
+                                    )
+                                ),
+                                
+                                React.createElement('div', null,
+                                    React.createElement('h2', { className: 'text-xl font-bold text-gray-900 mb-4' }, 'Execution Details'),
+                                    React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-4' },
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Execution Month'),
+                                            React.createElement('input', {
+                                                type: 'text',
+                                                name: 'EXEC_MONTH',
+                                                value: formData.EXEC_MONTH,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500',
+                                                placeholder: 'e.g., October'
+                                            })
+                                        ),
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Execution Year'),
+                                            React.createElement('input', {
+                                                type: 'text',
+                                                name: 'EXEC_YEAR',
+                                                value: formData.EXEC_YEAR,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500',
+                                                placeholder: 'e.g., 2025'
+                                            })
+                                        )
+                                    )
+                                ),
+                                
+                                React.createElement('div', { className: 'flex gap-4 pt-4' },
+                                    React.createElement('button', {
+                                        onClick: handleGenerate,
+                                        className: 'flex-1 bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 font-medium'
+                                    }, 'Generate Document'),
+                                    
+                                    generatedDoc &&
+                                        React.createElement('button', {
+                                            onClick: handleDownload,
+                                            className: 'flex-1 bg-green-600 text-white px-6 py-3 rounded-md hover:bg-green-700 font-medium'
+                                        }, 'Download RTF')
+                                ),
+                                
+                                generatedDoc &&
+                                    React.createElement('div', { className: 'mt-8 p-4 bg-green-50 border border-green-200 rounded-md' },
+                                        React.createElement('h3', { className: 'text-lg font-medium text-green-900 mb-2' }, 'âœ“ Document Generated Successfully!'),
+                                        React.createElement('p', { className: 'text-sm text-green-700' }, 'Click "Download RTF" to save the Power of Attorney document.')
+                                    )
+                            )
+                        )
+                    )
+                )
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement(POAGenerator));
+    </script>
+</body>
+</html>

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Muletown Law - Document Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 60px 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+            text-align: center;
+        }
+        
+        .subtitle {
+            color: #718096;
+            text-align: center;
+            margin-bottom: 40px;
+            font-size: 1.1rem;
+        }
+        
+        .generator-list {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .generator-card {
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 30px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            text-decoration: none;
+            display: block;
+        }
+        
+        .generator-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            border-color: #667eea;
+        }
+        
+        .generator-title {
+            color: #2d3748;
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        
+        .generator-description {
+            color: #4a5568;
+            line-height: 1.6;
+        }
+        
+        .arrow {
+            color: #667eea;
+            float: right;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #718096;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 40px 20px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Muletown Law</h1>
+        <p class="subtitle">Tennessee Legal Document Generator</p>
+        
+        <div class="generator-list">
+            <a href="will.html" class="generator-card">
+                <div class="generator-title">
+                    Last Will & Testament
+                    <span class="arrow">→</span>
+                </div>
+                <p class="generator-description">
+                    Generate a comprehensive Last Will and Testament with executor designation, 
+                    guardianship provisions, and asset distribution instructions.
+                </p>
+            </a>
+            
+            <a href="poa.html" class="generator-card">
+                <div class="generator-title">
+                    Power of Attorney
+                    <span class="arrow">→</span>
+                </div>
+                <p class="generator-description">
+                    Create a Durable General Power of Attorney with comprehensive authority 
+                    grants for financial, legal, and administrative matters.
+                </p>
+            </a>
+        </div>
+        
+        <footer>
+            <p>Muletown Law, P.C.</p>
+            <p>1109 S Garden Street, Columbia, TN 38401</p>
+        </footer>
+    </div>
+</body>
+</html>
