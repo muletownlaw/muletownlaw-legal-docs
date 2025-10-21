@@ -93,7 +93,8 @@ def generate_poa_document(data):
     
     # Define all replacements - including all possible variations
     replacements = {
-        '{AttorneyName}': data.get('Attorney_Name', '')'
+        '{AttorneyName}': data.get('Attorney_Name', 'Thomas M. Hutto')'
+        '{ATTORNEY NAME}': data.get('ATTORNEY_NAME', 'Thomas M. Hutto'),
         '{CLIENT NAME}': data.get('CLIENT_NAME', ''),
         '{COUNTY}': data.get('COUNTY', ''),
         '{AIF RELATIONSHIP}': data.get('AIF_RELATIONSHIP', ''),
