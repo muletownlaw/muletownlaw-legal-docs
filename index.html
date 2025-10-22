@@ -25,7 +25,7 @@
             background: white;
             border-radius: 20px;
             padding: 60px 40px;
-            max-width: 600px;
+            max-width: 800px;
             width: 100%;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
         }
@@ -45,8 +45,8 @@
         }
         
         .generator-list {
-            display: flex;
-            flex-direction: column;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 20px;
         }
         
@@ -59,6 +59,7 @@
             cursor: pointer;
             text-decoration: none;
             display: block;
+            position: relative;
         }
         
         .generator-card:hover {
@@ -69,21 +70,40 @@
         
         .generator-title {
             color: #2d3748;
-            font-size: 1.5rem;
+            font-size: 1.4rem;
             margin-bottom: 10px;
             font-weight: 600;
+            padding-right: 30px;
         }
         
         .generator-description {
             color: #4a5568;
             line-height: 1.6;
+            font-size: 0.95rem;
         }
         
         .arrow {
             color: #667eea;
-            float: right;
+            position: absolute;
+            top: 30px;
+            right: 30px;
             font-size: 1.5rem;
             font-weight: bold;
+        }
+        
+        .category-header {
+            color: #4a5568;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            padding-left: 5px;
+        }
+        
+        .category-header:first-of-type {
+            margin-top: 0;
         }
         
         footer {
@@ -93,13 +113,17 @@
             font-size: 0.9rem;
         }
         
-        @media (max-width: 600px) {
+        @media (max-width: 768px) {
             .container {
                 padding: 40px 20px;
             }
             
             h1 {
                 font-size: 2rem;
+            }
+            
+            .generator-list {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -109,11 +133,12 @@
         <h1>Muletown Law</h1>
         <p class="subtitle">Tennessee Legal Document Generator</p>
         
+        <div class="category-header">Estate Planning Documents</div>
         <div class="generator-list">
             <a href="will.html" class="generator-card">
+                <span class="arrow">→</span>
                 <div class="generator-title">
                     Last Will & Testament
-                    <span class="arrow">→</span>
                 </div>
                 <p class="generator-description">
                     Generate a comprehensive Last Will and Testament with executor designation, 
@@ -122,13 +147,38 @@
             </a>
             
             <a href="poa.html" class="generator-card">
+                <span class="arrow">→</span>
                 <div class="generator-title">
                     Power of Attorney
-                    <span class="arrow">→</span>
                 </div>
                 <p class="generator-description">
                     Create a Durable General Power of Attorney with comprehensive authority 
                     grants for financial, legal, and administrative matters.
+                </p>
+            </a>
+        </div>
+        
+        <div class="category-header">Healthcare Documents</div>
+        <div class="generator-list">
+            <a href="hcpoa.html" class="generator-card">
+                <span class="arrow">→</span>
+                <div class="generator-title">
+                    Healthcare Power of Attorney
+                </div>
+                <p class="generator-description">
+                    Designate healthcare decision-makers with authority to make medical 
+                    decisions on your behalf, including end-of-life care instructions.
+                </p>
+            </a>
+            
+            <a href="acp.html" class="generator-card">
+                <span class="arrow">→</span>
+                <div class="generator-title">
+                    Advance Care Plan
+                </div>
+                <p class="generator-description">
+                    Specify your healthcare preferences for quality of life determinations, 
+                    treatment options, and organ donation decisions.
                 </p>
             </a>
         </div>
