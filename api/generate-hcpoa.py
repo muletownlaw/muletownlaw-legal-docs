@@ -9,9 +9,8 @@ def replace_in_document(doc, replacements):
     for paragraph in doc.paragraphs:
         for placeholder, value in replacements.items():
             if placeholder in paragraph.text:
-                # Replace inline with proper bold preservation
-                inline = paragraph.runs
-                for run in inline:
+                # Replace inline with proper formatting preservation
+                for run in paragraph.runs:
                     if placeholder in run.text:
                         run.text = run.text.replace(placeholder, value)
     
@@ -33,19 +32,18 @@ def generate_hcpoa_document(data):
     
     doc = Document(template_path)
     
-    # Define all replacements
+    # Define all replacements matching YOUR template's placeholders
     replacements = {
-        '<< Matter.Client.Name >>': data['CLIENT_NAME'].upper(),
-        '{Client County}': data['COUNTY'],
-        '<< Matter.Relationships.Spouse.Names >>': data['AGENT1_NAME'].upper(),
-        '{reltn1}': data['AGENT1_RELATION'],
-        '{County1}': data['AGENT1_COUNTY'],
-        '{Appntd2}': data['AGENT2_NAME'].upper(),
-        '{reltn2 }': data['AGENT2_RELATION'],
-        '{reltn2}': data['AGENT2_RELATION'],
-        '{County2}': data['AGENT2_COUNTY'],
-        '{Month}': data['EXEC_MONTH'],
-        '<< Date.Year >>': data['EXEC_YEAR'],
+        '{CLIENT NAME}': data['CLIENT_NAME'].upper(),
+        '{CLIENT COUNTY}': data['COUNTY'],
+        '{AIF NAME}': data['AGENT1_NAME'].upper(),
+        '{AIF RELATION TO CLIENT}': data['AGENT1_RELATION'],
+        '{AIF COUNTY}': data['AGENT1_COUNTY'],
+        '{ALTERNATE AIF NAME}': data['AGENT2_NAME'].upper(),
+        '{ALTERNATE AIF RELATION TO CLIENT}': data['AGENT2_RELATION'],
+        '{ALTERNATE AIF COUNTY}': data['AGENT2_COUNTY'],
+        '{MONTH}': data['EXEC_MONTH'],
+        '{CURRENT YEAR}': data['EXEC_YEAR'],
     }
     
     # Replace in all paragraphs
