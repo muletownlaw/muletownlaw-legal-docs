@@ -3,7 +3,6 @@ import json
 from io import BytesIO
 from docx import Document
 import os
-import re
 
 def merge_runs_in_paragraph(paragraph):
     """Merge all runs to handle split placeholders"""
@@ -257,14 +256,19 @@ def generate_will_document(data):
             
             # After finding new articles, renumber subsequent articles
             if found_new_article and text.startswith('Article '):
-                match = re.match(r'Article (\w+) - (.+)', text)
-                if match:
-                    title = match.group(2)
-                    for run in para.runs:
-                        if 'Article' in run.text:
-                            run.text = f'Article {current_article_num} - {title}'
-                            current_article_num += 1
-                            break
+                try:
+                    # Try to parse article title
+                    if ' - ' in text:
+                        parts = text.split(' - ', 1)
+                        title = parts[1]
+                        for run in para.runs:
+                            if 'Article' in run.text:
+                                run.text = f'Article {current_article_num} - {title}'
+                                current_article_num += 1
+                                break
+                except Exception:
+                    # Skip if we can't parse it
+                    pass
     
     # Step 6: Fix unmarried executor appointments and spouse references
     if not is_married:
@@ -320,12 +324,15 @@ class handler(BaseHTTPRequestHandler):
             post_data = self.rfile.read(content_length)
             data = json.loads(post_data.decode('utf-8'))
             
+            # Generate the document
             doc = generate_will_document(data)
             
+            # Save to buffer
             buffer = BytesIO()
             doc.save(buffer)
             buffer.seek(0)
             
+            # Send response
             client_name = data.get('CLIENT_NAME', 'Client').replace(' ', '_')
             
             self.send_response(200)
@@ -335,11 +342,18 @@ class handler(BaseHTTPRequestHandler):
             self.wfile.write(buffer.getvalue())
             
         except Exception as e:
+            # Better error reporting
+            import traceback
+            error_details = {
+                'error': str(e),
+                'type': type(e).__name__,
+                'traceback': traceback.format_exc()
+            }
+            
             self.send_response(500)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
-            error_msg = f"{type(e).__name__}: {str(e)}"
-            self.wfile.write(json.dumps({'error': error_msg}).encode())
+            self.wfile.write(json.dumps(error_details).encode())
     
     def do_OPTIONS(self):
         self.send_response(200)
