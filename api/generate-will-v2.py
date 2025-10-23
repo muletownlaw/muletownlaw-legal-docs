@@ -146,33 +146,38 @@ def generate_will_document(data):
         '{DISINHERITED_RELATION}': data.get('DISINHERITED_RELATION', '') if data.get('INCLUDE_DISINHERITANCE') else '',
     }
     
-    # Step 1: Replace all variables
+    # Step 1: Replace all variables FIRST
     replace_in_document(doc, replacements)
     
-    # Step 2: Handle conditional married sections
-    paragraphs_to_remove = []
-    
-    for i, para in enumerate(doc.paragraphs):
+    # Step 2: Handle conditional sections by modifying text, not removing paragraphs
+    for para in doc.paragraphs:
         text = para.text
         
         # Handle ##IF_MARRIED## sections
         if '##IF_MARRIED##' in text:
             if is_married:
                 # Remove markers, keep content
+                new_text = text.replace('##IF_MARRIED##', '').replace('##END_IF##', '')
                 for run in para.runs:
-                    run.text = run.text.replace('##IF_MARRIED##', '').replace('##END_IF##', '')
+                    run.text = ''
+                if para.runs:
+                    para.runs[0].text = new_text
             else:
-                # Remove entire paragraph
-                paragraphs_to_remove.append(i)
+                # Replace entire paragraph with empty
+                for run in para.runs:
+                    run.text = ''
         
         # Handle ##Delete first sentence if unmarried##
         elif '##Delete first sentence if unmarried##' in text:
             if is_married:
                 # Remove marker only
+                new_text = text.replace('##Delete first sentence if unmarried##', '')
                 for run in para.runs:
-                    run.text = run.text.replace('##Delete first sentence if unmarried##', '')
+                    run.text = ''
+                if para.runs:
+                    para.runs[0].text = new_text
             else:
-                # Remove "I am married..." sentence, keep children part
+                # Keep only the children part
                 if 'I have' in text:
                     start_idx = text.find('I have')
                     new_text = text[start_idx:].replace('##Delete first sentence if unmarried##', '')
@@ -181,97 +186,130 @@ def generate_will_document(data):
                     if para.runs:
                         para.runs[0].text = new_text
     
-    # Remove marked paragraphs (do this backwards so indices don't shift)
-    for i in reversed(paragraphs_to_remove):
-        p = doc.paragraphs[i]._element
-        p.getparent().remove(p)
-    
-    # Step 3: Handle clause insertions at markers
-    clauses_to_insert = []
-    
-    # Article III clauses
+    # Step 3: Build clause insertions
     article_iii_clauses = []
     if data.get('INCLUDE_HANDWRITTEN_LIST'):
-        article_iii_clauses.append(load_clause_content('Handwritten_List.docx'))
+        content = load_clause_content('Handwritten_List.docx')
+        if content:
+            article_iii_clauses.append(content)
+    
     if data.get('INCLUDE_DISINHERITANCE'):
-        article_iii_clauses.append(load_clause_content('Love_And_Affection.docx'))
+        content = load_clause_content('Love_And_Affection.docx')
+        if content:
+            article_iii_clauses.append(content)
+    
     if data.get('INCLUDE_REAL_ESTATE_DEBT'):
-        article_iii_clauses.append(load_clause_content('Real_Estate_Debt.docx'))
+        content = load_clause_content('Real_Estate_Debt.docx')
+        if content:
+            article_iii_clauses.append(content)
     
     # New articles
     new_articles = []
-    article_counter = 6  # Start at VI
-    if data.get('INCLUDE_NO_CONTEST'):
-        no_contest_content = load_clause_content('No_Contest.docx')
-        new_articles.append(f"Article {article_counter} - No Contest\n\n{no_contest_content}")
-        article_counter += 1
+    article_counter = 6
     
-    # Replace markers with content
-    for i, para in enumerate(doc.paragraphs):
+    if data.get('INCLUDE_NO_CONTEST'):
+        content = load_clause_content('No_Contest.docx')
+        if content:
+            new_articles.append(f"Article {article_counter} - No Contest\n\n{content}")
+            article_counter += 1
+    
+    # Step 4: Replace insertion markers with clause content
+    for para in doc.paragraphs:
         text = para.text.strip()
         
         if text == '##INSERT_ARTICLE_III_CLAUSES##':
-            # Replace with Article III clauses
-            replacement = '\n\n'.join(article_iii_clauses) if article_iii_clauses else ''
-            for run in para.runs:
-                run.text = ''
-            if para.runs and replacement:
-                para.runs[0].text = replacement
-            elif not replacement:
-                # Remove empty marker paragraph
-                p = para._element
-                p.getparent().remove(p)
+            if article_iii_clauses:
+                replacement = '\n\n'.join(article_iii_clauses)
+                for run in para.runs:
+                    run.text = ''
+                if para.runs:
+                    para.runs[0].text = replacement
+            else:
+                # Empty the marker
+                for run in para.runs:
+                    run.text = ''
         
         elif text == '##INSERT_NEW_ARTICLES##':
-            # Replace with new articles
-            replacement = '\n\n'.join(new_articles) if new_articles else ''
-            for run in para.runs:
-                run.text = ''
-            if para.runs and replacement:
-                para.runs[0].text = replacement
-            elif not replacement:
-                # Remove empty marker paragraph
-                p = para._element
-                p.getparent().remove(p)
-            
-            # Now renumber subsequent articles
-            renumber_from = i + 1
-            for j in range(renumber_from, len(doc.paragraphs)):
-                p_text = doc.paragraphs[j].text.strip()
-                if p_text.startswith('Article '):
-                    # Extract title
-                    match = re.match(r'Article \w+ - (.+)', p_text)
-                    if match:
-                        title = match.group(1)
-                        # Update to new number
-                        for run in doc.paragraphs[j].runs:
-                            if 'Article' in run.text:
-                                run.text = f'Article {article_counter} - {title}'
-                                article_counter += 1
-                                break
+            if new_articles:
+                replacement = '\n\n'.join(new_articles)
+                for run in para.runs:
+                    run.text = ''
+                if para.runs:
+                    para.runs[0].text = replacement
+            else:
+                # Empty the marker
+                for run in para.runs:
+                    run.text = ''
     
-    # Step 4: Fix unmarried executor appointment
+    # Step 5: Renumber articles if needed
+    if new_articles:
+        # Find where the new articles were inserted and renumber from there
+        found_new_article = False
+        current_article_num = article_counter  # Continue from where we left off
+        
+        for para in doc.paragraphs:
+            text = para.text.strip()
+            
+            # Check if this paragraph contains our inserted articles
+            if 'Article 6 - No Contest' in text:
+                found_new_article = True
+                continue
+            
+            # After finding new articles, renumber subsequent articles
+            if found_new_article and text.startswith('Article '):
+                match = re.match(r'Article (\w+) - (.+)', text)
+                if match:
+                    title = match.group(2)
+                    for run in para.runs:
+                        if 'Article' in run.text:
+                            run.text = f'Article {current_article_num} - {title}'
+                            current_article_num += 1
+                            break
+    
+    # Step 6: Fix unmarried executor appointments and spouse references
     if not is_married:
         for para in doc.paragraphs:
-            if 'appoint my' in para.text and ', ,' in para.text:
-                for run in para.runs:
-                    # Replace blank spouse with alternate executor
-                    run.text = run.text.replace(
+            text = para.text
+            if text.strip():  # Only process non-empty paragraphs
+                # Fix executor appointment
+                if 'appoint my' in text and ', ,' in text:
+                    new_text = text.replace(
                         f'my {spouse_type}, ,',
                         replacements['{ALTERNATE_EXECUTOR_NAME}'] + ','
                     )
+                    for run in para.runs:
+                        run.text = ''
+                    if para.runs:
+                        para.runs[0].text = new_text
+                
+                # Fix "my said wife/husband" references
+                elif f'my said {spouse_type}, ,' in text:
+                    new_text = text.replace(f'my said {spouse_type}, ,', 'my children')
+                    for run in para.runs:
+                        run.text = ''
+                    if para.runs:
+                        para.runs[0].text = new_text
+                
+                # Fix general spouse references with blank
+                elif f'{spouse_type}, ,' in text:
+                    # Remove this paragraph's content if it's just about spouse
+                    if 'survives me' in text and 'children' not in text:
+                        for run in para.runs:
+                            run.text = ''
     
-    # Step 5: Final cleanup - remove any remaining markers or fix spouse references
+    # Step 7: Final cleanup - remove any remaining markers
     for para in doc.paragraphs:
         text = para.text
-        if '##' in text or ', ,' in text:
+        if '##' in text or (not is_married and ', ,' in text):
             for run in para.runs:
-                # Remove any remaining markers
-                run.text = run.text.replace('##', '')
+                # Remove any remaining ## markers
+                cleaned = run.text.replace('##', '')
                 # Fix any remaining blank spouse references
                 if not is_married:
-                    run.text = run.text.replace(f'my {spouse_type}, ,', replacements['{ALTERNATE_EXECUTOR_NAME}'])
-                    run.text = run.text.replace(f'my said {spouse_type}, ,', 'my children')
+                    cleaned = cleaned.replace(f'my {spouse_type}, ,', replacements.get('{ALTERNATE_EXECUTOR_NAME}', 'alternate executor'))
+                    cleaned = cleaned.replace(f'my said {spouse_type}, ,', 'my children')
+                    cleaned = cleaned.replace(f'{spouse_type}, ,', '')
+                run.text = cleaned
     
     return doc
 
@@ -300,7 +338,8 @@ class handler(BaseHTTPRequestHandler):
             self.send_response(500)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
-            self.wfile.write(json.dumps({'error': str(e)}).encode())
+            error_msg = f"{type(e).__name__}: {str(e)}"
+            self.wfile.write(json.dumps({'error': error_msg}).encode())
     
     def do_OPTIONS(self):
         self.send_response(200)
