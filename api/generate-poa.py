@@ -40,7 +40,7 @@ def generate_poa_document(data):
         '{ALTERNATE_AGENT_COUNTY}': data.get('ALTERNATE_AGENT_COUNTY', data['CLIENT_COUNTY']),
         '{EXEC_MONTH}': data.get('EXEC_MONTH', 'October'),
         '{EXEC_YEAR}': data.get('EXEC_YEAR', '2025'),
-        '{ATTORNEY_NAME}': data.get('ATTORNEY_NAME', 'Blake W. Lay')
+        '{AttorneyName}': data.get('ATTORNEY_NAME', 'Thomas M. Hutto')
     }
     
     replace_in_document(doc, replacements)
