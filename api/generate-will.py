@@ -279,29 +279,72 @@ def generate_will_document(data):
         for para in doc.paragraphs:
             text = para.text
             if text.strip():  # Only process non-empty paragraphs
-                # COMPLETE REMOVAL: Any paragraph mentioning spouse with blank should be emptied
-                if f'{spouse_type}, ,' in text or f'my said {spouse_type}' in text:
-                    # Empty the entire paragraph
-                    for run in para.runs:
-                        run.text = ''
+                
+                # SPECIAL: Fix executor appointment - REPLACE instead of empty
+                if 'appoint' in text.lower() and 'executor' in text.lower():
+                    if f'my {spouse_type}, ,' in text:
+                        # Replace with alternate executor
+                        new_text = text.replace(
+                            f'my {spouse_type}, ,',
+                            replacements['{ALTERNATE_EXECUTOR_NAME}'] + ','
+                        ).replace(
+                            f'my said {spouse_type}',
+                            replacements['{ALTERNATE_EXECUTOR_NAME}']
+                        )
+                        for run in para.runs:
+                            run.text = ''
+                        if para.runs:
+                            para.runs[0].text = new_text
                     continue
                 
-                # Also remove general spouse references without name
-                if 'my spouse' in text.lower() and 'children' not in text.lower():
-                    for run in para.runs:
-                        run.text = ''
-                    continue
-                
-                # Fix executor appointment to use alternate instead
-                if 'appoint' in text and 'Executor' in text:
-                    new_text = text.replace(
-                        f'my {spouse_type}, ,',
-                        replacements['{ALTERNATE_EXECUTOR_NAME}'] + ','
-                    )
+                # SPECIAL: Rewrite children disposition for unmarried
+                if f'If my said {spouse_type}, ,' in text and 'children' in text.lower():
+                    # Complete rewrite for unmarried
+                    new_text = f"I give, devise and bequeath all the rest, residue and remainder of the property which I own or have the right to dispose of at my death to my {child_or_children}, {children_list} (\"my {child_or_children}\"), in equal shares, share and share alike."
                     for run in para.runs:
                         run.text = ''
                     if para.runs:
                         para.runs[0].text = new_text
+                    continue
+                
+                # Remove spouse-only disposition paragraphs
+                if (f'{spouse_type}, ,' in text or f'my said {spouse_type}' in text):
+                    # Empty paragraphs that are ONLY about spouse
+                    if 'survives me' in text and 'children' not in text.lower():
+                        for run in para.runs:
+                            run.text = ''
+                        continue
+                
+                # Remove general spouse references
+                if 'my spouse' in text.lower() and 'children' not in text.lower() and 'contingent' not in text.lower():
+                    for run in para.runs:
+                        run.text = ''
+                    continue
+        
+        # Step 6b: Relabel sections A, B, C when spouse section removed
+        in_article_iii = False
+        
+        for para in doc.paragraphs:
+            text = para.text.strip()
+            
+            if 'Article III' in text:
+                in_article_iii = True
+                continue
+            
+            if in_article_iii:
+                if text.startswith('Article IV'):
+                    break
+                
+                # Check if this is a section heading
+                if text and len(text) < 100:  # Section headings are short
+                    if text.startswith('B. To My Children'):
+                        # Relabel to A
+                        for run in para.runs:
+                            run.text = run.text.replace('B. ', 'A. ')
+                    elif text.startswith('C. Contingent'):
+                        # Relabel to B
+                        for run in para.runs:
+                            run.text = run.text.replace('C. ', 'B. ')
     
     # Step 7: Final cleanup - remove any remaining markers
     for para in doc.paragraphs:
