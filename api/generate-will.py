@@ -2,186 +2,299 @@ from http.server import BaseHTTPRequestHandler
 import json
 from io import BytesIO
 from docx import Document
-from docx.shared import Inches, Pt, RGBColor
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_UNDERLINE
-from docx.oxml.ns import qn
-from docx.oxml import OxmlElement
+from docx.shared import Pt, Inches
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+import os
+from datetime import datetime
 
-def add_header_footer(doc, client_name):
-    """Add header and footer to document"""
-    section = doc.sections[0]
-    header = section.header
-    header_para = header.paragraphs[0]
-    header_para.text = "Prepared by:\nMuletown Law, P.C.\n1109 S Garden Street\nColumbia, TN 38401"
-    header_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+def merge_runs_in_paragraph(paragraph):
+    """Merge all runs to handle split placeholders"""
+    if not paragraph.runs:
+        return
+    full_text = paragraph.text
+    for run in paragraph.runs:
+        run.text = ''
+    if paragraph.runs:
+        paragraph.runs[0].text = full_text
+
+def replace_in_document(doc, replacements):
+    """Replace all placeholders in document"""
+    # Merge runs first
+    for paragraph in doc.paragraphs:
+        merge_runs_in_paragraph(paragraph)
     
-    # Footer with page number
-    footer = section.footer
-    footer_para = footer.paragraphs[0]
-    footer_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    footer_para.text = "Page "
-    run = footer_para.add_run()
-    fldChar1 = OxmlElement('w:fldChar')
-    fldChar1.set(qn('w:fldCharType'), 'begin')
-    run._r.append(fldChar1)
-    instrText = OxmlElement('w:instrText')
-    instrText.text = "PAGE"
-    run._r.append(instrText)
-    fldChar2 = OxmlElement('w:fldChar')
-    fldChar2.set(qn('w:fldCharType'), 'end')
-    run._r.append(fldChar2)
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for paragraph in cell.paragraphs:
+                    merge_runs_in_paragraph(paragraph)
+    
+    # Do replacements
+    for paragraph in doc.paragraphs:
+        for placeholder, value in replacements.items():
+            if placeholder in paragraph.text:
+                for run in paragraph.runs:
+                    if placeholder in run.text:
+                        run.text = run.text.replace(placeholder, value)
+    
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for paragraph in cell.paragraphs:
+                    for placeholder, value in replacements.items():
+                        if placeholder in paragraph.text:
+                            for run in paragraph.runs:
+                                if placeholder in run.text:
+                                    run.text = run.text.replace(placeholder, value)
+
+def insert_clause(main_doc, clause_filename):
+    """Insert a clause document at the end of the main document"""
+    clause_path = os.path.join(os.path.dirname(__file__), 'clauses', clause_filename)
+    
+    try:
+        clause_doc = Document(clause_path)
+        
+        # Copy paragraphs from clause to main document
+        for para in clause_doc.paragraphs:
+            # Skip empty paragraphs and insertion markers
+            if para.text.strip() and not para.text.strip().startswith('##'):
+                new_para = main_doc.add_paragraph(para.text, style=para.style)
+                # Copy formatting
+                new_para.alignment = para.alignment
+                if para.runs:
+                    for run in para.runs:
+                        if run.text:
+                            new_run = new_para.runs[0] if new_para.runs else new_para.add_run(run.text)
+                            new_run.bold = run.bold
+                            new_run.italic = run.italic
+        
+        # Copy tables from clause if any
+        for table in clause_doc.tables:
+            # Create new table in main doc
+            new_table = main_doc.add_table(rows=len(table.rows), cols=len(table.columns))
+            for i, row in enumerate(table.rows):
+                for j, cell in enumerate(row.cells):
+                    new_table.rows[i].cells[j].text = cell.text
+        
+        return True
+    except Exception as e:
+        print(f"Error inserting clause {clause_filename}: {e}")
+        return False
+
+def format_children_list(children):
+    """Format children array into text"""
+    if not children:
+        return ""
+    
+    if len(children) == 1:
+        child = children[0]
+        return f"{child['name']}, born {child['dob']}"
+    
+    result = []
+    for i, child in enumerate(children):
+        if i == len(children) - 1:
+            result.append(f"and {child['name']}, born {child['dob']}")
+        else:
+            result.append(f"{child['name']}, born {child['dob']}")
+    
+    return ", ".join(result)
+
+def number_to_words(num):
+    """Convert number to words"""
+    words = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
+    if num <= 10:
+        return words[num - 1]
+    return str(num)
 
 def generate_will_document(data):
-    """Generate Last Will and Testament document"""
-    doc = Document()
+    """Generate will from template with optional clauses"""
+    template_path = os.path.join(os.path.dirname(__file__), 'Simple_Will.docx')
+    doc = Document(template_path)
     
-    # Set up document margins
-    section = doc.sections[0]
-    section.top_margin = Inches(1)
-    section.bottom_margin = Inches(1)
-    section.left_margin = Inches(1)
-    section.right_margin = Inches(1)
+    # Calculate derived values
+    client_gender = data.get('CLIENT_GENDER', 'Male')
+    spouse_gender = 'Female' if client_gender == 'Male' else 'Male'
     
-    # Add header/footer
-    add_header_footer(doc, data.get('clientName', ''))
+    # Pronouns
+    if client_gender == 'Male':
+        client_pronoun_subj = 'he'
+        client_pronoun_poss = 'his'
+        testator_title = 'Testator'
+        executor_title = 'Executor'
+        spouse_type = 'wife'
+    else:
+        client_pronoun_subj = 'she'
+        client_pronoun_poss = 'her'
+        testator_title = 'Testatrix'
+        executor_title = 'Executrix'
+        spouse_type = 'husband'
     
-    # Title
-    title = doc.add_paragraph()
-    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    title_run = title.add_run("LAST WILL AND TESTAMENT")
-    title_run.bold = True
-    title_run.font.size = Pt(14)
+    if spouse_gender == 'Male':
+        spouse_pronoun_subj = 'he'
+        spouse_pronoun_poss = 'his'
+    else:
+        spouse_pronoun_subj = 'she'
+        spouse_pronoun_poss = 'her'
     
-    subtitle = doc.add_paragraph()
-    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    subtitle_run = subtitle.add_run(f"OF {data.get('clientName', '').upper()}")
-    subtitle_run.bold = True
-    subtitle_run.font.size = Pt(12)
+    # Children formatting
+    children = data.get('children', [])
+    num_children = len(children)
+    children_list = format_children_list(children)
+    child_or_children = 'child' if num_children == 1 else 'children'
+    children_pronoun_subj = 'he' if num_children == 1 and children[0].get('gender') == 'Male' else 'she' if num_children == 1 else 'they'
+    children_pronoun_poss = 'his' if num_children == 1 and children[0].get('gender') == 'Male' else 'her' if num_children == 1 else 'their'
     
-    doc.add_paragraph()  # Spacing
+    # Base replacements
+    replacements = {
+        '{CLIENT_NAME}': data.get('CLIENT_NAME', '').upper(),
+        '{CLIENT_COUNTY}': data.get('CLIENT_COUNTY', 'Maury'),
+        '{CLIENT_PRONOUN_SUBJECTIVE}': client_pronoun_subj,
+        '{CLIENT_PRONOUN_POSSESSIVE}': client_pronoun_poss,
+        '{CLIENT_SPOUSE_NAME}': data.get('CLIENT_SPOUSE_NAME', '').upper(),
+        '{SPOUSE_TYPE}': spouse_type,
+        '{SPOUSE_PRONOUN_SUBJECTIVE}': spouse_pronoun_subj,
+        '{SPOUSE_PRONOUN_POSSESSIVE}': spouse_pronoun_poss,
+        '{TESTATOR_TITLE}': testator_title,
+        '{EXECUTOR_TITLE}': executor_title,
+        '{ALTERNATE_EXECUTOR_NAME}': data.get('ALTERNATE_EXECUTOR_NAME', '').upper(),
+        '{ALTERNATE_EXECUTOR_RELATION}': data.get('ALTERNATE_EXECUTOR_RELATION', ''),
+        '{ALTERNATE_EXECUTOR_COUNTY}': data.get('ALTERNATE_EXECUTOR_COUNTY', data.get('CLIENT_COUNTY', 'Maury')),
+        '{ALTERNATE_EXECUTOR_STATE}': data.get('ALTERNATE_EXECUTOR_STATE', 'Tennessee'),
+        '{EXEC_MONTH}': data.get('EXEC_MONTH', 'October'),
+        '{EXEC_YEAR}': data.get('EXEC_YEAR', '2025'),
+        '{NUMBER_OF_CHILDREN}': number_to_words(num_children) if num_children > 0 else '',
+        '{CHILDREN_LIST}': children_list,
+        '{CHILD_OR_CHILDREN}': child_or_children,
+        '{CHILDREN_PRONOUN_SUBJECTIVE}': children_pronoun_subj,
+        '{CHILDREN_PRONOUN_POSSESSIVE}': children_pronoun_poss,
+        '{CONTINGENT_BENEFICIARY_NAME}': data.get('CONTINGENT_BENEFICIARY_NAME', '').upper(),
+        '{CONTINGENT_BENEFICIARY_RELATION}': data.get('CONTINGENT_BENEFICIARY_RELATION', ''),
+    }
     
-    # Article I - Introduction
-    p = doc.add_paragraph()
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = p.add_run("ARTICLE I")
-    run.bold = True
-    doc.add_paragraph()
+    # Optional clause variables
+    if data.get('INCLUDE_DISINHERITANCE'):
+        replacements['{DISINHERITED_NAME}'] = data.get('DISINHERITED_NAME', '').upper()
+        replacements['{DISINHERITED_RELATION}'] = data.get('DISINHERITED_RELATION', '')
     
-    intro_text = f"I, {data.get('clientName', '')}, a resident of {data.get('county', '')} County, Tennessee, being of sound mind and disposing memory, do hereby make, publish and declare this to be my Last Will and Testament, hereby revoking all former Wills and Codicils made by me."
-    doc.add_paragraph(intro_text)
-    doc.add_paragraph()
+    if data.get('INCLUDE_TRUST'):
+        replacements['{TRUSTEE_NAME}'] = data.get('TRUSTEE_NAME', '').upper()
+        replacements['{TRUSTEE_RELATIONSHIP}'] = data.get('TRUSTEE_RELATIONSHIP', '')
+        replacements['{ALTERNATE_TRUSTEE_NAME}'] = data.get('ALTERNATE_TRUSTEE_NAME', '').upper()
+        replacements['{TRUST_DISTRIBUTION_AGE}'] = str(data.get('TRUST_DISTRIBUTION_AGE', '25'))
+        replacements['{TRUST_DISTRIBUTION_AGE_TEXT}'] = data.get('TRUST_DISTRIBUTION_AGE_TEXT', 'Twenty-Five')
+        replacements['{RESIDUARY_BENEFICIARY_NAME}'] = data.get('RESIDUARY_BENEFICIARY_NAME', '').upper()
+        replacements['{RESIDUARY_BENEFICIARY_RELATION}'] = data.get('RESIDUARY_BENEFICIARY_RELATION', '')
     
-    # Article II - Executor
-    p = doc.add_paragraph()
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = p.add_run("ARTICLE II - EXECUTOR")
-    run.bold = True
-    doc.add_paragraph()
+    if data.get('INCLUDE_GUARDIAN'):
+        replacements['{PRIMARY_GUARDIAN_NAME}'] = data.get('PRIMARY_GUARDIAN_NAME', '').upper()
+        replacements['{PRIMARY_GUARDIAN_RELATION}'] = data.get('PRIMARY_GUARDIAN_RELATION', '')
+        replacements['{ALTERNATE_GUARDIAN_1_NAME}'] = data.get('ALTERNATE_GUARDIAN_1_NAME', '').upper()
+        replacements['{ALTERNATE_GUARDIAN_1_RELATION}'] = data.get('ALTERNATE_GUARDIAN_1_RELATION', '')
+        replacements['{ALTERNATE_GUARDIAN_2_NAME}'] = data.get('ALTERNATE_GUARDIAN_2_NAME', '').upper()
+        replacements['{ALTERNATE_GUARDIAN_2_RELATION}'] = data.get('ALTERNATE_GUARDIAN_2_RELATION', '')
     
-    executor_text = f"I hereby nominate and appoint {data.get('executor', '')} as Executor of this my Last Will and Testament."
-    doc.add_paragraph(executor_text)
+    if data.get('INCLUDE_SPECIAL_NEEDS'):
+        sn_gender = data.get('SPECIAL_NEEDS_BENEFICIARY_GENDER', 'Male')
+        sn_pronoun = 'he' if sn_gender == 'Male' else 'she'
+        replacements['{SPECIAL_NEEDS_BENEFICIARY_NAME}'] = data.get('SPECIAL_NEEDS_BENEFICIARY_NAME', '').upper()
+        replacements['{SPECIAL_NEEDS_BENEFICIARY_RELATION}'] = data.get('SPECIAL_NEEDS_BENEFICIARY_RELATION', '')
+        replacements['{SPECIAL_NEEDS_BENEFICIARY_PRONOUN_SUBJECTIVE}'] = sn_pronoun
     
-    if data.get('alternateExecutor'):
-        alt_text = f"If {data.get('executor', '')} is unable or unwilling to serve, I nominate and appoint {data.get('alternateExecutor', '')} as alternate Executor."
-        doc.add_paragraph(alt_text)
+    # Replace variables in main template
+    replace_in_document(doc, replacements)
     
-    doc.add_paragraph()
+    # Handle conditional content - remove unmarried text if married
+    if data.get('CLIENT_SPOUSE_NAME'):
+        # Married - keep spouse references
+        pass
+    else:
+        # Unmarried - remove spouse sentence
+        for para in doc.paragraphs:
+            if '##Delete first sentence if unmarried##' in para.text:
+                # Find and remove the married sentence
+                text = para.text
+                if 'I am married to' in text:
+                    # Remove everything before the marker
+                    marker_pos = text.find('##Delete first sentence if unmarried##')
+                    if marker_pos > 0:
+                        # Keep everything after marker, remove marker
+                        new_text = text[marker_pos:].replace('##Delete first sentence if unmarried##', '')
+                        for run in para.runs:
+                            run.text = ''
+                        if para.runs:
+                            para.runs[0].text = new_text.strip()
     
-    # Article III - Debts and Expenses
-    p = doc.add_paragraph()
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = p.add_run("ARTICLE III - DEBTS AND EXPENSES")
-    run.bold = True
-    doc.add_paragraph()
+    # Insert optional clauses
+    if data.get('INCLUDE_HANDWRITTEN_LIST'):
+        insert_clause(doc, 'Handwritten_List.docx')
     
-    debts_text = "I direct my Executor to pay all of my just debts, funeral expenses, and costs of administration as soon as practicable after my death."
-    doc.add_paragraph(debts_text)
-    doc.add_paragraph()
+    if data.get('INCLUDE_DISINHERITANCE'):
+        insert_clause(doc, 'Love_And_Affection.docx')
     
-    # Article IV - Disposition of Property
-    p = doc.add_paragraph()
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = p.add_run("ARTICLE IV - DISPOSITION OF PROPERTY")
-    run.bold = True
-    doc.add_paragraph()
+    if data.get('INCLUDE_NO_CONTEST'):
+        insert_clause(doc, 'No_Contest.docx')
     
-    # Specific bequests
-    if data.get('specificBequests'):
-        doc.add_paragraph("A. Specific Bequests").bold = True
-        for bequest in data.get('specificBequests', []):
-            bequest_text = f"I give and bequeath {bequest.get('item', '')} to {bequest.get('beneficiary', '')}."
-            doc.add_paragraph(bequest_text)
-        doc.add_paragraph()
+    if data.get('INCLUDE_REAL_ESTATE_DEBT'):
+        insert_clause(doc, 'Real_Estate_Debt.docx')
     
-    # Residuary estate
-    doc.add_paragraph("B. Residuary Estate").bold = True
-    residuary_text = f"I give, devise and bequeath all the rest, residue and remainder of my estate, both real and personal, of whatsoever kind and wheresoever situated, to {data.get('residuaryBeneficiary', '')}."
-    doc.add_paragraph(residuary_text)
+    if data.get('INCLUDE_SELL_REAL_ESTATE'):
+        insert_clause(doc, 'Sell_Real_Estate.docx')
     
-    doc.add_paragraph()
+    if data.get('INCLUDE_SPECIFIC_BEQUESTS'):
+        insert_clause(doc, 'Specific_Bequests.docx')
+        replace_in_document(doc, replacements)  # Replace variables in inserted clause
     
-    # Signature section
-    doc.add_paragraph()
-    doc.add_paragraph()
-    sig_line = doc.add_paragraph("_" * 40)
-    sig_line.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    sig_name = doc.add_paragraph(data.get('clientName', ''))
-    sig_name.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    if data.get('INCLUDE_TRUST'):
+        trust_type = data.get('TRUST_TYPE', 'basic')
+        if trust_type == 'basic':
+            insert_clause(doc, 'Trust_Basic.docx')
+        elif trust_type == 'sprinkling_standard':
+            insert_clause(doc, 'Trust_Sprinkling_Standard.docx')
+        elif trust_type == 'sprinkling_complex':
+            insert_clause(doc, 'Trust_Sprinkling_Complex.docx')
+        elif trust_type == 'spouse_lifetime':
+            insert_clause(doc, 'Trust_Spouse_Lifetime.docx')
+        elif trust_type == 'special_needs':
+            insert_clause(doc, 'Trust_Special_Needs.docx')
+        
+        # Replace variables in trust clauses
+        replace_in_document(doc, replacements)
     
-    doc.add_paragraph()
-    doc.add_paragraph()
-    
-    # Witness section
-    witness_intro = doc.add_paragraph("The foregoing instrument was signed, sealed, published and declared by the above-named Testator as and for their Last Will and Testament in our presence, and we, at their request and in their presence, and in the presence of each other, have hereunto subscribed our names as witnesses this _____ day of _____________, 20___.")
-    doc.add_paragraph()
-    
-    # Two witness signature blocks
-    for i in range(1, 3):
-        doc.add_paragraph(f"Witness {i}:")
-        doc.add_paragraph("_" * 40)
-        doc.add_paragraph("Printed Name: _" * 20)
-        doc.add_paragraph("Address: _" * 25)
-        doc.add_paragraph()
+    # Final pass to replace any remaining variables
+    replace_in_document(doc, replacements)
     
     return doc
 
 class handler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        try:
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            data = json.loads(post_data.decode('utf-8'))
+            
+            doc = generate_will_document(data)
+            
+            buffer = BytesIO()
+            doc.save(buffer)
+            buffer.seek(0)
+            
+            client_name = data.get('CLIENT_NAME', 'Client').replace(' ', '_')
+            
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+            self.send_header('Content-Disposition', f'attachment; filename="Will_{client_name}.docx"')
+            self.end_headers()
+            self.wfile.write(buffer.getvalue())
+            
+        except Exception as e:
+            self.send_response(500)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({'error': str(e)}).encode())
+    
     def do_OPTIONS(self):
-        """Handle CORS preflight"""
         self.send_response(200)
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
-
-    def do_POST(self):
-        """Handle POST request to generate Will document"""
-        try:
-            # Read request body
-            content_length = int(self.headers['Content-Length'])
-            post_data = self.rfile.read(content_length)
-            data = json.loads(post_data.decode('utf-8'))
-            
-            # Generate document
-            doc = generate_will_document(data)
-            
-            # Save to BytesIO
-            doc_bytes = BytesIO()
-            doc.save(doc_bytes)
-            doc_bytes.seek(0)
-            
-            # Send response
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.send_header('Content-Disposition', f'attachment; filename="Will_{data.get("clientName", "Document").replace(" ", "_")}.docx"')
-            self.end_headers()
-            self.wfile.write(doc_bytes.read())
-            
-        except Exception as e:
-            self.send_response(500)
-            self.send_header('Content-Type', 'application/json')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            error_response = json.dumps({'error': str(e)})
-            self.wfile.write(error_response.encode())
