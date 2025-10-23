@@ -42,19 +42,19 @@ def replace_in_document(doc, replacements):
                                 if placeholder in run.text:
                                     run.text = run.text.replace(placeholder, value)
 
-def load_clause_content(clause_filename):
-    """Load clause content as text, skipping markers"""
+def load_clause_paragraphs(clause_filename):
+    """Load clause paragraphs, preserving structure"""
     clause_path = os.path.join(os.path.dirname(__file__), 'clauses', clause_filename)
     try:
         clause_doc = Document(clause_path)
-        lines = []
+        paragraphs = []
         for para in clause_doc.paragraphs:
             text = para.text.strip()
             if text and not text.startswith('##'):
-                lines.append(text)
-        return '\n\n'.join(lines)
+                paragraphs.append(text)
+        return paragraphs
     except:
-        return ''
+        return []
 
 def format_children_list(children):
     """Format children array into text"""
@@ -188,28 +188,30 @@ def generate_will_document(data):
     # Step 3: Build clause insertions
     article_iii_clauses = []
     if data.get('INCLUDE_HANDWRITTEN_LIST'):
-        content = load_clause_content('Handwritten_List.docx')
-        if content:
-            article_iii_clauses.append(content)
+        paras = load_clause_paragraphs('Handwritten_List.docx')
+        if paras:
+            article_iii_clauses.extend(paras)
     
     if data.get('INCLUDE_DISINHERITANCE'):
-        content = load_clause_content('Love_And_Affection.docx')
-        if content:
-            article_iii_clauses.append(content)
+        paras = load_clause_paragraphs('Love_And_Affection.docx')
+        if paras:
+            article_iii_clauses.extend(paras)
     
     if data.get('INCLUDE_REAL_ESTATE_DEBT'):
-        content = load_clause_content('Real_Estate_Debt.docx')
-        if content:
-            article_iii_clauses.append(content)
+        paras = load_clause_paragraphs('Real_Estate_Debt.docx')
+        if paras:
+            article_iii_clauses.extend(paras)
     
     # New articles
     new_articles = []
     article_counter = 6
     
     if data.get('INCLUDE_NO_CONTEST'):
-        content = load_clause_content('No_Contest.docx')
-        if content:
-            new_articles.append(f"Article {article_counter} - No Contest\n\n{content}")
+        paras = load_clause_paragraphs('No_Contest.docx')
+        if paras:
+            # Add article heading
+            new_articles.append(f"Article {article_counter} - No Contest")
+            new_articles.extend(paras)
             article_counter += 1
     
     # Step 4: Replace insertion markers with clause content
@@ -218,6 +220,7 @@ def generate_will_document(data):
         
         if text == '##INSERT_ARTICLE_III_CLAUSES##':
             if article_iii_clauses:
+                # Insert each paragraph separately instead of joining
                 replacement = '\n\n'.join(article_iii_clauses)
                 for run in para.runs:
                     run.text = ''
@@ -230,6 +233,7 @@ def generate_will_document(data):
         
         elif text == '##INSERT_NEW_ARTICLES##':
             if new_articles:
+                # Insert each paragraph separately
                 replacement = '\n\n'.join(new_articles)
                 for run in para.runs:
                     run.text = ''
@@ -275,8 +279,21 @@ def generate_will_document(data):
         for para in doc.paragraphs:
             text = para.text
             if text.strip():  # Only process non-empty paragraphs
-                # Fix executor appointment
-                if 'appoint my' in text and ', ,' in text:
+                # COMPLETE REMOVAL: Any paragraph mentioning spouse with blank should be emptied
+                if f'{spouse_type}, ,' in text or f'my said {spouse_type}' in text:
+                    # Empty the entire paragraph
+                    for run in para.runs:
+                        run.text = ''
+                    continue
+                
+                # Also remove general spouse references without name
+                if 'my spouse' in text.lower() and 'children' not in text.lower():
+                    for run in para.runs:
+                        run.text = ''
+                    continue
+                
+                # Fix executor appointment to use alternate instead
+                if 'appoint' in text and 'Executor' in text:
                     new_text = text.replace(
                         f'my {spouse_type}, ,',
                         replacements['{ALTERNATE_EXECUTOR_NAME}'] + ','
@@ -285,21 +302,6 @@ def generate_will_document(data):
                         run.text = ''
                     if para.runs:
                         para.runs[0].text = new_text
-                
-                # Fix "my said wife/husband" references
-                elif f'my said {spouse_type}, ,' in text:
-                    new_text = text.replace(f'my said {spouse_type}, ,', 'my children')
-                    for run in para.runs:
-                        run.text = ''
-                    if para.runs:
-                        para.runs[0].text = new_text
-                
-                # Fix general spouse references with blank
-                elif f'{spouse_type}, ,' in text:
-                    # Remove this paragraph's content if it's just about spouse
-                    if 'survives me' in text and 'children' not in text:
-                        for run in para.runs:
-                            run.text = ''
     
     # Step 7: Final cleanup - remove any remaining markers
     for para in doc.paragraphs:
