@@ -2,10 +2,10 @@ from http.server import BaseHTTPRequestHandler
 import json
 from io import BytesIO
 from docx import Document
-from docx.shared import Pt, Inches
+from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import os
-from datetime import datetime
+import re
 
 def merge_runs_in_paragraph(paragraph):
     """Merge all runs to handle split placeholders"""
@@ -19,7 +19,6 @@ def merge_runs_in_paragraph(paragraph):
 
 def replace_in_document(doc, replacements):
     """Replace all placeholders in document"""
-    # Merge runs first
     for paragraph in doc.paragraphs:
         merge_runs_in_paragraph(paragraph)
     
@@ -29,13 +28,12 @@ def replace_in_document(doc, replacements):
                 for paragraph in cell.paragraphs:
                     merge_runs_in_paragraph(paragraph)
     
-    # Do replacements
     for paragraph in doc.paragraphs:
         for placeholder, value in replacements.items():
             if placeholder in paragraph.text:
                 for run in paragraph.runs:
                     if placeholder in run.text:
-                        run.text = run.text.replace(placeholder, value)
+                        run.text = run.text.replace(placeholder, str(value))
     
     for table in doc.tables:
         for row in table.rows:
@@ -45,41 +43,65 @@ def replace_in_document(doc, replacements):
                         if placeholder in paragraph.text:
                             for run in paragraph.runs:
                                 if placeholder in run.text:
-                                    run.text = run.text.replace(placeholder, value)
+                                    run.text = run.text.replace(placeholder, str(value))
 
-def insert_clause(main_doc, clause_filename):
-    """Insert a clause document at the end of the main document"""
-    clause_path = os.path.join(os.path.dirname(__file__), 'clauses', clause_filename)
-    
-    try:
-        clause_doc = Document(clause_path)
-        
-        # Copy paragraphs from clause to main document
-        for para in clause_doc.paragraphs:
-            # Skip empty paragraphs and insertion markers
-            if para.text.strip() and not para.text.strip().startswith('##'):
-                new_para = main_doc.add_paragraph(para.text, style=para.style)
-                # Copy formatting
-                new_para.alignment = para.alignment
+def clean_markers(doc):
+    """Remove all ## insertion markers"""
+    for para in doc.paragraphs:
+        if '##' in para.text:
+            text = para.text
+            # Remove markers
+            text = re.sub(r'##[^#]*##', '', text)
+            text = text.strip()
+            
+            if text:
+                for run in para.runs:
+                    run.text = ''
                 if para.runs:
-                    for run in para.runs:
-                        if run.text:
-                            new_run = new_para.runs[0] if new_para.runs else new_para.add_run(run.text)
-                            new_run.bold = run.bold
-                            new_run.italic = run.italic
+                    para.runs[0].text = text
+            else:
+                # Empty paragraph after removing marker
+                for run in para.runs:
+                    run.text = ''
+
+def handle_unmarried(doc, is_married):
+    """Handle married/unmarried conditional content"""
+    if is_married:
+        # Just remove markers
+        clean_markers(doc)
+        return
+    
+    # Unmarried - need to modify content
+    for i, para in enumerate(doc.paragraphs):
+        text = para.text
         
-        # Copy tables from clause if any
-        for table in clause_doc.tables:
-            # Create new table in main doc
-            new_table = main_doc.add_table(rows=len(table.rows), cols=len(table.columns))
-            for i, row in enumerate(table.rows):
-                for j, cell in enumerate(row.cells):
-                    new_table.rows[i].cells[j].text = cell.text
+        # Handle married declaration with marker
+        if '##Delete first sentence if unmarried##' in text:
+            # Remove everything before the marker
+            parts = text.split('##Delete first sentence if unmarried##')
+            if len(parts) > 1:
+                # Keep only what's after the marker
+                new_text = parts[1].strip()
+                for run in para.runs:
+                    run.text = ''
+                if para.runs and new_text:
+                    para.runs[0].text = new_text
+            else:
+                # Just remove the marker
+                for run in para.runs:
+                    run.text = run.text.replace('##Delete first sentence if unmarried##', '')
         
-        return True
-    except Exception as e:
-        print(f"Error inserting clause {clause_filename}: {e}")
-        return False
+        # Remove standalone married declarations
+        elif 'I am married to' in text and '{CLIENT_SPOUSE_NAME}' not in text:
+            for run in para.runs:
+                run.text = ''
+        
+        # Fix spouse appointments that now have empty names
+        elif ('I appoint my wife, ,' in text or 'I appoint my husband, ,' in text or 
+              'my wife, , as Executor' in text.lower() or 'my husband, , as Executor' in text.lower()):
+            # This is a spouse appointment with blank name - skip it
+            for run in para.runs:
+                run.text = ''
 
 def format_children_list(children):
     """Format children array into text"""
@@ -101,15 +123,71 @@ def format_children_list(children):
 
 def number_to_words(num):
     """Convert number to words"""
-    words = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
-    if num <= 10:
-        return words[num - 1]
-    return str(num)
+    words = {0: "no", 1: "one", 2: "two", 3: "three", 4: "four", 5: "five",
+             6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten"}
+    return words.get(num, str(num))
+
+def insert_new_article_clauses(doc, clauses_data):
+    """Insert new article clauses after Article V and renumber"""
+    # Find Article V end (start of Article VI or end of doc)
+    article_v_end = None
+    roman_map = {'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5, 'VI': 6, 'VII': 7, 'VIII': 8, 'IX': 9, 'X': 10}
+    
+    for i, para in enumerate(doc.paragraphs):
+        if para.text.strip().startswith('ARTICLE V'):
+            # Found Article V, now find where it ends
+            for j in range(i + 1, len(doc.paragraphs)):
+                if doc.paragraphs[j].text.strip().startswith('ARTICLE'):
+                    article_v_end = j
+                    break
+            if article_v_end is None:
+                article_v_end = len(doc.paragraphs)
+            break
+    
+    if article_v_end is None:
+        article_v_end = len(doc.paragraphs)
+    
+    # Load and insert clauses
+    insertion_point = article_v_end
+    for clause_file in clauses_data:
+        clause_path = os.path.join(os.path.dirname(__file__), 'clauses', clause_file)
+        try:
+            clause_doc = Document(clause_path)
+            # Insert at the specific position
+            for para in clause_doc.paragraphs:
+                if para.text.strip() and not para.text.strip().startswith('##'):
+                    # Create new paragraph - we'll add content then reorganize
+                    doc.add_paragraph(para.text, style=para.style)
+        except Exception as e:
+            print(f"Error loading clause {clause_file}: {e}")
+    
+    # Now renumber all articles
+    roman_numerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII']
+    article_num = 0
+    
+    for para in doc.paragraphs:
+        text = para.text.strip()
+        if text.startswith('ARTICLE'):
+            article_num += 1
+            # Replace article number
+            if '###' in text:
+                new_text = text.replace('###', roman_numerals[article_num - 1] if article_num <= len(roman_numerals) else str(article_num))
+            else:
+                # Match any existing roman numeral and replace
+                new_text = re.sub(r'ARTICLE [IVXLCDM]+', f'ARTICLE {roman_numerals[article_num - 1]}', text)
+            
+            for run in para.runs:
+                run.text = ''
+            if para.runs:
+                para.runs[0].text = new_text
 
 def generate_will_document(data):
     """Generate will from template with optional clauses"""
     template_path = os.path.join(os.path.dirname(__file__), 'Simple_Will.docx')
     doc = Document(template_path)
+    
+    # Determine if married
+    is_married = bool(data.get('CLIENT_SPOUSE_NAME', '').strip())
     
     # Calculate derived values
     client_gender = data.get('CLIENT_GENDER', 'Male')
@@ -141,8 +219,6 @@ def generate_will_document(data):
     num_children = len(children)
     children_list = format_children_list(children)
     child_or_children = 'child' if num_children == 1 else 'children'
-    children_pronoun_subj = 'he' if num_children == 1 and children[0].get('gender') == 'Male' else 'she' if num_children == 1 else 'they'
-    children_pronoun_poss = 'his' if num_children == 1 and children[0].get('gender') == 'Male' else 'her' if num_children == 1 else 'their'
     
     # Base replacements
     replacements = {
@@ -150,8 +226,8 @@ def generate_will_document(data):
         '{CLIENT_COUNTY}': data.get('CLIENT_COUNTY', 'Maury'),
         '{CLIENT_PRONOUN_SUBJECTIVE}': client_pronoun_subj,
         '{CLIENT_PRONOUN_POSSESSIVE}': client_pronoun_poss,
-        '{CLIENT_SPOUSE_NAME}': data.get('CLIENT_SPOUSE_NAME', '').upper(),
-        '{SPOUSE_TYPE}': spouse_type,
+        '{CLIENT_SPOUSE_NAME}': data.get('CLIENT_SPOUSE_NAME', '').upper() if is_married else '',
+        '{SPOUSE_TYPE}': spouse_type if is_married else '',
         '{SPOUSE_PRONOUN_SUBJECTIVE}': spouse_pronoun_subj,
         '{SPOUSE_PRONOUN_POSSESSIVE}': spouse_pronoun_poss,
         '{TESTATOR_TITLE}': testator_title,
@@ -162,11 +238,9 @@ def generate_will_document(data):
         '{ALTERNATE_EXECUTOR_STATE}': data.get('ALTERNATE_EXECUTOR_STATE', 'Tennessee'),
         '{EXEC_MONTH}': data.get('EXEC_MONTH', 'October'),
         '{EXEC_YEAR}': data.get('EXEC_YEAR', '2025'),
-        '{NUMBER_OF_CHILDREN}': number_to_words(num_children) if num_children > 0 else '',
+        '{NUMBER_OF_CHILDREN}': number_to_words(num_children),
         '{CHILDREN_LIST}': children_list,
         '{CHILD_OR_CHILDREN}': child_or_children,
-        '{CHILDREN_PRONOUN_SUBJECTIVE}': children_pronoun_subj,
-        '{CHILDREN_PRONOUN_POSSESSIVE}': children_pronoun_poss,
         '{CONTINGENT_BENEFICIARY_NAME}': data.get('CONTINGENT_BENEFICIARY_NAME', '').upper(),
         '{CONTINGENT_BENEFICIARY_RELATION}': data.get('CONTINGENT_BENEFICIARY_RELATION', ''),
     }
@@ -176,92 +250,26 @@ def generate_will_document(data):
         replacements['{DISINHERITED_NAME}'] = data.get('DISINHERITED_NAME', '').upper()
         replacements['{DISINHERITED_RELATION}'] = data.get('DISINHERITED_RELATION', '')
     
-    if data.get('INCLUDE_TRUST'):
-        replacements['{TRUSTEE_NAME}'] = data.get('TRUSTEE_NAME', '').upper()
-        replacements['{TRUSTEE_RELATIONSHIP}'] = data.get('TRUSTEE_RELATIONSHIP', '')
-        replacements['{ALTERNATE_TRUSTEE_NAME}'] = data.get('ALTERNATE_TRUSTEE_NAME', '').upper()
-        replacements['{TRUST_DISTRIBUTION_AGE}'] = str(data.get('TRUST_DISTRIBUTION_AGE', '25'))
-        replacements['{TRUST_DISTRIBUTION_AGE_TEXT}'] = data.get('TRUST_DISTRIBUTION_AGE_TEXT', 'Twenty-Five')
-        replacements['{RESIDUARY_BENEFICIARY_NAME}'] = data.get('RESIDUARY_BENEFICIARY_NAME', '').upper()
-        replacements['{RESIDUARY_BENEFICIARY_RELATION}'] = data.get('RESIDUARY_BENEFICIARY_RELATION', '')
-    
-    if data.get('INCLUDE_GUARDIAN'):
-        replacements['{PRIMARY_GUARDIAN_NAME}'] = data.get('PRIMARY_GUARDIAN_NAME', '').upper()
-        replacements['{PRIMARY_GUARDIAN_RELATION}'] = data.get('PRIMARY_GUARDIAN_RELATION', '')
-        replacements['{ALTERNATE_GUARDIAN_1_NAME}'] = data.get('ALTERNATE_GUARDIAN_1_NAME', '').upper()
-        replacements['{ALTERNATE_GUARDIAN_1_RELATION}'] = data.get('ALTERNATE_GUARDIAN_1_RELATION', '')
-        replacements['{ALTERNATE_GUARDIAN_2_NAME}'] = data.get('ALTERNATE_GUARDIAN_2_NAME', '').upper()
-        replacements['{ALTERNATE_GUARDIAN_2_RELATION}'] = data.get('ALTERNATE_GUARDIAN_2_RELATION', '')
-    
-    if data.get('INCLUDE_SPECIAL_NEEDS'):
-        sn_gender = data.get('SPECIAL_NEEDS_BENEFICIARY_GENDER', 'Male')
-        sn_pronoun = 'he' if sn_gender == 'Male' else 'she'
-        replacements['{SPECIAL_NEEDS_BENEFICIARY_NAME}'] = data.get('SPECIAL_NEEDS_BENEFICIARY_NAME', '').upper()
-        replacements['{SPECIAL_NEEDS_BENEFICIARY_RELATION}'] = data.get('SPECIAL_NEEDS_BENEFICIARY_RELATION', '')
-        replacements['{SPECIAL_NEEDS_BENEFICIARY_PRONOUN_SUBJECTIVE}'] = sn_pronoun
-    
     # Replace variables in main template
     replace_in_document(doc, replacements)
     
-    # Handle conditional content - remove unmarried text if married
-    if data.get('CLIENT_SPOUSE_NAME'):
-        # Married - keep spouse references
-        pass
-    else:
-        # Unmarried - remove spouse sentence
-        for para in doc.paragraphs:
-            if '##Delete first sentence if unmarried##' in para.text:
-                # Find and remove the married sentence
-                text = para.text
-                if 'I am married to' in text:
-                    # Remove everything before the marker
-                    marker_pos = text.find('##Delete first sentence if unmarried##')
-                    if marker_pos > 0:
-                        # Keep everything after marker, remove marker
-                        new_text = text[marker_pos:].replace('##Delete first sentence if unmarried##', '')
-                        for run in para.runs:
-                            run.text = ''
-                        if para.runs:
-                            para.runs[0].text = new_text.strip()
+    # Handle married/unmarried content
+    handle_unmarried(doc, is_married)
     
-    # Insert optional clauses
-    if data.get('INCLUDE_HANDWRITTEN_LIST'):
-        insert_clause(doc, 'Handwritten_List.docx')
-    
-    if data.get('INCLUDE_DISINHERITANCE'):
-        insert_clause(doc, 'Love_And_Affection.docx')
-    
+    # Insert new article clauses after Article V
+    clauses_to_insert = []
     if data.get('INCLUDE_NO_CONTEST'):
-        insert_clause(doc, 'No_Contest.docx')
+        clauses_to_insert.append('No_Contest.docx')
+    if data.get('INCLUDE_DISINHERITANCE'):
+        clauses_to_insert.append('Love_And_Affection.docx')
     
-    if data.get('INCLUDE_REAL_ESTATE_DEBT'):
-        insert_clause(doc, 'Real_Estate_Debt.docx')
-    
-    if data.get('INCLUDE_SELL_REAL_ESTATE'):
-        insert_clause(doc, 'Sell_Real_Estate.docx')
-    
-    if data.get('INCLUDE_SPECIFIC_BEQUESTS'):
-        insert_clause(doc, 'Specific_Bequests.docx')
-        replace_in_document(doc, replacements)  # Replace variables in inserted clause
-    
-    if data.get('INCLUDE_TRUST'):
-        trust_type = data.get('TRUST_TYPE', 'basic')
-        if trust_type == 'basic':
-            insert_clause(doc, 'Trust_Basic.docx')
-        elif trust_type == 'sprinkling_standard':
-            insert_clause(doc, 'Trust_Sprinkling_Standard.docx')
-        elif trust_type == 'sprinkling_complex':
-            insert_clause(doc, 'Trust_Sprinkling_Complex.docx')
-        elif trust_type == 'spouse_lifetime':
-            insert_clause(doc, 'Trust_Spouse_Lifetime.docx')
-        elif trust_type == 'special_needs':
-            insert_clause(doc, 'Trust_Special_Needs.docx')
-        
-        # Replace variables in trust clauses
+    if clauses_to_insert:
+        insert_new_article_clauses(doc, clauses_to_insert)
+        # Replace variables in inserted clauses
         replace_in_document(doc, replacements)
     
-    # Final pass to replace any remaining variables
-    replace_in_document(doc, replacements)
+    # Clean any remaining markers
+    clean_markers(doc)
     
     return doc
 
