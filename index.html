@@ -4,515 +4,189 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Muletown Law - Document Generator</title>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body>
-    <div id="root"></div>
-    
-    <script type="text/babel">
-        const { useState, useEffect } = React;
-
-        function DocumentGenerator() {
-            const [step, setStep] = useState('selection');
-            const [clientInfo, setClientInfo] = useState({
-                CLIENT_NAME: '',
-                CLIENT_GENDER: 'Male',
-                CLIENT_COUNTY: 'Maury',
-                SPOUSE_NAME: '',
-                SPOUSE_GENDER: 'Female',
-                IS_COUPLE: false,
-                EXEC_MONTH: 'October',
-                EXEC_YEAR: '2025'
-            });
-            
-            const [selectedDocs, setSelectedDocs] = useState({
-                poa: false,
-                hcpoa: false,
-                acp: false
-            });
-            
-            const [currentDoc, setCurrentDoc] = useState(null);
-            const [generatedDocs, setGeneratedDocs] = useState([]);
-            
-            const [docData, setDocData] = useState({
-                PRIMARY_AGENT_NAME: '',
-                PRIMARY_AGENT_RELATION: 'spouse',
-                PRIMARY_AGENT_COUNTY: 'Maury',
-                ALTERNATE_AGENT_NAME: '',
-                ALTERNATE_AGENT_RELATION: 'child',
-                ALTERNATE_AGENT_COUNTY: 'Maury',
-                // For spouse documents
-                SPOUSE_AGENTS_RECIPROCAL: true,  // true = spouse's primary agent is client
-                SPOUSE_PRIMARY_AGENT_NAME: '',
-                SPOUSE_PRIMARY_AGENT_RELATION: 'spouse',
-                SPOUSE_PRIMARY_AGENT_COUNTY: 'Maury',
-                SPOUSE_ALTERNATE_AGENT_NAME: '',
-                SPOUSE_ALTERNATE_AGENT_RELATION: 'child',
-                SPOUSE_ALTERNATE_AGENT_COUNTY: 'Maury'
-            });
-
-            const tennesseeCounties = ["Anderson", "Bedford", "Benton", "Bledsoe", "Blount", "Bradley", "Campbell", "Cannon", "Carroll", "Carter", "Cheatham", "Chester", "Claiborne", "Clay", "Cocke", "Coffee", "Crockett", "Cumberland", "Davidson", "Decatur", "DeKalb", "Dickson", "Dyer", "Fayette", "Fentress", "Franklin", "Gibson", "Giles", "Grainger", "Greene", "Grundy", "Hamblen", "Hamilton", "Hancock", "Hardeman", "Hardin", "Hawkins", "Haywood", "Henderson", "Henry", "Hickman", "Houston", "Humphreys", "Jackson", "Jefferson", "Johnson", "Knox", "Lake", "Lauderdale", "Lawrence", "Lewis", "Lincoln", "Loudon", "McMinn", "McNairy", "Macon", "Madison", "Marion", "Marshall", "Maury", "Meigs", "Monroe", "Montgomery", "Moore", "Morgan", "Obion", "Overton", "Perry", "Pickett", "Polk", "Putnam", "Rhea", "Roane", "Robertson", "Rutherford", "Scott", "Sequatchie", "Sevier", "Shelby", "Smith", "Stewart", "Sullivan", "Sumner", "Tipton", "Trousdale", "Unicoi", "Union", "Van Buren", "Warren", "Washington", "Wayne", "Weakley", "White", "Williamson", "Wilson"];
-
-            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-
-            const handleClientInfoChange = (e) => {
-                const { name, value, type, checked } = e.target;
-                setClientInfo(prev => ({
-                    ...prev,
-                    [name]: type === 'checkbox' ? checked : value
-                }));
-            };
-
-            const handleDocSelection = (doc) => {
-                setSelectedDocs(prev => ({
-                    ...prev,
-                    [doc]: !prev[doc]
-                }));
-            };
-
-            const handleDocDataChange = (e) => {
-                const { name, value, type, checked } = e.target;
-                setDocData(prev => ({
-                    ...prev,
-                    [name]: type === 'checkbox' ? checked : value
-                }));
-            };
-
-            // Auto-fill spouse agent names when reciprocal is selected
-            useEffect(() => {
-                if (docData.SPOUSE_AGENTS_RECIPROCAL && clientInfo.CLIENT_NAME) {
-                    setDocData(prev => ({
-                        ...prev,
-                        SPOUSE_PRIMARY_AGENT_NAME: clientInfo.CLIENT_NAME,
-                        SPOUSE_PRIMARY_AGENT_RELATION: 'spouse',
-                        SPOUSE_PRIMARY_AGENT_COUNTY: clientInfo.CLIENT_COUNTY
-                    }));
-                }
-            }, [docData.SPOUSE_AGENTS_RECIPROCAL, clientInfo.CLIENT_NAME, clientInfo.CLIENT_COUNTY]);
-
-            const startGeneration = () => {
-                const docs = Object.keys(selectedDocs).filter(doc => selectedDocs[doc]);
-                if (docs.length === 0) {
-                    alert('Please select at least one document');
-                    return;
-                }
-                if (!clientInfo.CLIENT_NAME) {
-                    alert('Please enter client name');
-                    return;
-                }
-                if (clientInfo.IS_COUPLE && !clientInfo.SPOUSE_NAME) {
-                    alert('Please enter spouse name');
-                    return;
-                }
-                setCurrentDoc(docs[0]);
-                setStep(docs[0]);
-            };
-
-            const generateDocument = async (docType, clientName, clientGender, clientCounty, agentData) => {
-                const data = {
-                    CLIENT_NAME: clientName,
-                    CLIENT_GENDER: clientGender,
-                    CLIENT_COUNTY: clientCounty,
-                    CLIENT_PRONOUN: clientGender === 'Male' ? 'he' : 'she',
-                    PRIMARY_AGENT_NAME: agentData.PRIMARY_AGENT_NAME,
-                    PRIMARY_AGENT_RELATION: agentData.PRIMARY_AGENT_RELATION,
-                    PRIMARY_AGENT_COUNTY: agentData.PRIMARY_AGENT_COUNTY,
-                    ALTERNATE_AGENT_NAME: agentData.ALTERNATE_AGENT_NAME,
-                    ALTERNATE_AGENT_RELATION: agentData.ALTERNATE_AGENT_RELATION,
-                    ALTERNATE_AGENT_COUNTY: agentData.ALTERNATE_AGENT_COUNTY,
-                    EXEC_MONTH: clientInfo.EXEC_MONTH,
-                    EXEC_YEAR: clientInfo.EXEC_YEAR,
-                    ATTORNEY_NAME: 'Thomas M. Hutto'
-                };
-
-                const endpoints = {
-                    poa: '/api/generate-poa',
-                    hcpoa: '/api/generate-hcpoa',
-                    acp: '/api/generate-acp'
-                };
-
-                const response = await fetch(endpoints[docType], {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `${docType.toUpperCase()}_${clientName.replace(/ /g, '_')}.docx`;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                    return true;
-                }
-                return false;
-            };
-
-            const handleGenerateAndNext = async () => {
-                // Generate for primary client
-                const clientAgentData = {
-                    PRIMARY_AGENT_NAME: docData.PRIMARY_AGENT_NAME,
-                    PRIMARY_AGENT_RELATION: docData.PRIMARY_AGENT_RELATION,
-                    PRIMARY_AGENT_COUNTY: docData.PRIMARY_AGENT_COUNTY,
-                    ALTERNATE_AGENT_NAME: docData.ALTERNATE_AGENT_NAME,
-                    ALTERNATE_AGENT_RELATION: docData.ALTERNATE_AGENT_RELATION,
-                    ALTERNATE_AGENT_COUNTY: docData.ALTERNATE_AGENT_COUNTY
-                };
-                
-                const success = await generateDocument(
-                    currentDoc, 
-                    clientInfo.CLIENT_NAME, 
-                    clientInfo.CLIENT_GENDER,
-                    clientInfo.CLIENT_COUNTY,
-                    clientAgentData
-                );
-                
-                if (success) {
-                    setGeneratedDocs(prev => [...prev, currentDoc]);
-                    
-                    // If couple, generate spouse version with appropriate agents
-                    if (clientInfo.IS_COUPLE && clientInfo.SPOUSE_NAME) {
-                        const spouseAgentData = docData.SPOUSE_AGENTS_RECIPROCAL ? {
-                            // Reciprocal: spouse's primary agent is the client
-                            PRIMARY_AGENT_NAME: clientInfo.CLIENT_NAME,
-                            PRIMARY_AGENT_RELATION: 'spouse',
-                            PRIMARY_AGENT_COUNTY: clientInfo.CLIENT_COUNTY,
-                            // Use same alternate as client
-                            ALTERNATE_AGENT_NAME: docData.ALTERNATE_AGENT_NAME,
-                            ALTERNATE_AGENT_RELATION: docData.ALTERNATE_AGENT_RELATION,
-                            ALTERNATE_AGENT_COUNTY: docData.ALTERNATE_AGENT_COUNTY
-                        } : {
-                            // Custom: use spouse-specific agents
-                            PRIMARY_AGENT_NAME: docData.SPOUSE_PRIMARY_AGENT_NAME,
-                            PRIMARY_AGENT_RELATION: docData.SPOUSE_PRIMARY_AGENT_RELATION,
-                            PRIMARY_AGENT_COUNTY: docData.SPOUSE_PRIMARY_AGENT_COUNTY,
-                            ALTERNATE_AGENT_NAME: docData.SPOUSE_ALTERNATE_AGENT_NAME,
-                            ALTERNATE_AGENT_RELATION: docData.SPOUSE_ALTERNATE_AGENT_RELATION,
-                            ALTERNATE_AGENT_COUNTY: docData.SPOUSE_ALTERNATE_AGENT_COUNTY
-                        };
-                        
-                        await generateDocument(
-                            currentDoc, 
-                            clientInfo.SPOUSE_NAME, 
-                            clientInfo.SPOUSE_GENDER,
-                            clientInfo.CLIENT_COUNTY,
-                            spouseAgentData
-                        );
-                    }
-                    
-                    // Move to next document or complete
-                    const docs = Object.keys(selectedDocs).filter(doc => selectedDocs[doc]);
-                    const currentIndex = docs.indexOf(currentDoc);
-                    if (currentIndex < docs.length - 1) {
-                        const nextDoc = docs[currentIndex + 1];
-                        setCurrentDoc(nextDoc);
-                        setStep(nextDoc);
-                    } else {
-                        setStep('complete');
-                    }
-                }
-            };
-
-            const reset = () => {
-                setStep('selection');
-                setSelectedDocs({ poa: false, hcpoa: false, acp: false });
-                setGeneratedDocs([]);
-                setCurrentDoc(null);
-            };
-
-            if (step === 'selection') {
-                return (
-                    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 py-12 px-4">
-                        <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl p-8">
-                            <h1 className="text-4xl font-bold text-gray-900 mb-2 text-center">Muletown Law</h1>
-                            <p className="text-gray-600 text-center mb-8">Tennessee Legal Document Generator</p>
-                            
-                            <div className="mb-8 p-6 bg-gray-50 rounded-lg">
-                                <h2 className="text-2xl font-semibold mb-4">Client Information</h2>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Client Name *</label>
-                                        <input type="text" name="CLIENT_NAME" value={clientInfo.CLIENT_NAME} onChange={handleClientInfoChange} className="w-full px-3 py-2 border rounded-md" placeholder="John Smith" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Gender *</label>
-                                        <select name="CLIENT_GENDER" value={clientInfo.CLIENT_GENDER} onChange={handleClientInfoChange} className="w-full px-3 py-2 border rounded-md">
-                                            <option value="Male">Male</option>
-                                            <option value="Female">Female</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                
-                                <div className="mb-4">
-                                    <label className="block text-sm font-medium mb-1">County *</label>
-                                    <select name="CLIENT_COUNTY" value={clientInfo.CLIENT_COUNTY} onChange={handleClientInfoChange} className="w-full px-3 py-2 border rounded-md">
-                                        {tennesseeCounties.map(c => <option key={c} value={c}>{c}</option>)}
-                                    </select>
-                                </div>
-                                
-                                <div className="mb-4">
-                                    <label className="flex items-center">
-                                        <input type="checkbox" name="IS_COUPLE" checked={clientInfo.IS_COUPLE} onChange={handleClientInfoChange} className="mr-2" />
-                                        <span className="font-medium">Generate reciprocal documents for spouse</span>
-                                    </label>
-                                </div>
-                                
-                                {clientInfo.IS_COUPLE && (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 p-4 bg-blue-50 rounded-md">
-                                        <div>
-                                            <label className="block text-sm font-medium mb-1">Spouse Name *</label>
-                                            <input type="text" name="SPOUSE_NAME" value={clientInfo.SPOUSE_NAME} onChange={handleClientInfoChange} className="w-full px-3 py-2 border rounded-md" placeholder="Jane Smith" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium mb-1">Spouse Gender *</label>
-                                            <select name="SPOUSE_GENDER" value={clientInfo.SPOUSE_GENDER} onChange={handleClientInfoChange} className="w-full px-3 py-2 border rounded-md">
-                                                <option value="Male">Male</option>
-                                                <option value="Female">Female</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                )}
-                                
-                                <div className="grid grid-cols-2 gap-4 mt-4">
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Execution Month</label>
-                                        <select name="EXEC_MONTH" value={clientInfo.EXEC_MONTH} onChange={handleClientInfoChange} className="w-full px-3 py-2 border rounded-md">
-                                            {monthNames.map(m => <option key={m} value={m}>{m}</option>)}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Execution Year</label>
-                                        <input type="text" name="EXEC_YEAR" value={clientInfo.EXEC_YEAR} onChange={handleClientInfoChange} className="w-full px-3 py-2 border rounded-md" />
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div className="mb-8">
-                                <h2 className="text-2xl font-semibold mb-4">Select Documents to Generate</h2>
-                                <div className="space-y-3">
-                                    <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50">
-                                        <input type="checkbox" checked={selectedDocs.poa} onChange={() => handleDocSelection('poa')} className="mr-3 h-5 w-5" />
-                                        <div>
-                                            <div className="font-semibold">Power of Attorney (Financial)</div>
-                                            <div className="text-sm text-gray-600">Durable General POA for financial matters</div>
-                                        </div>
-                                    </label>
-                                    
-                                    <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50">
-                                        <input type="checkbox" checked={selectedDocs.hcpoa} onChange={() => handleDocSelection('hcpoa')} className="mr-3 h-5 w-5" />
-                                        <div>
-                                            <div className="font-semibold">Healthcare Power of Attorney</div>
-                                            <div className="text-sm text-gray-600">Healthcare decision-making authority</div>
-                                        </div>
-                                    </label>
-                                    
-                                    <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer hover:bg-gray-50">
-                                        <input type="checkbox" checked={selectedDocs.acp} onChange={() => handleDocSelection('acp')} className="mr-3 h-5 w-5" />
-                                        <div>
-                                            <div className="font-semibold">Advance Care Plan</div>
-                                            <div className="text-sm text-gray-600">End-of-life care preferences</div>
-                                        </div>
-                                    </label>
-                                </div>
-                            </div>
-                            
-                            <button onClick={startGeneration} disabled={!clientInfo.CLIENT_NAME || Object.values(selectedDocs).every(v => !v)} className="w-full bg-blue-600 text-white py-4 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-lg">
-                                Continue to Document Details
-                            </button>
-                        </div>
-                    </div>
-                );
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 60px 40px;
+            max-width: 800px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+            text-align: center;
+        }
+        
+        .subtitle {
+            color: #718096;
+            text-align: center;
+            margin-bottom: 40px;
+            font-size: 1.1rem;
+        }
+        
+        .generator-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .generator-card {
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 30px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            text-decoration: none;
+            display: block;
+            position: relative;
+        }
+        
+        .generator-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            border-color: #667eea;
+        }
+        
+        .generator-title {
+            color: #2d3748;
+            font-size: 1.4rem;
+            margin-bottom: 10px;
+            font-weight: 600;
+            padding-right: 30px;
+        }
+        
+        .generator-description {
+            color: #4a5568;
+            line-height: 1.6;
+            font-size: 0.95rem;
+        }
+        
+        .arrow {
+            color: #667eea;
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
+        .category-header {
+            color: #4a5568;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            padding-left: 5px;
+        }
+        
+        .category-header:first-of-type {
+            margin-top: 0;
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            color: #718096;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 40px 20px;
             }
-
-            if (step === 'poa' || step === 'hcpoa' || step === 'acp') {
-                const docTitles = {
-                    poa: 'Power of Attorney',
-                    hcpoa: 'Healthcare Power of Attorney',
-                    acp: 'Advance Care Plan'
-                };
-
-                return (
-                    <div className="min-h-screen bg-gray-50 py-12 px-4">
-                        <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-lg p-8">
-                            <div className="mb-6">
-                                <h1 className="text-3xl font-bold text-gray-900">{docTitles[currentDoc]}</h1>
-                                <p className="text-gray-600">For: {clientInfo.CLIENT_NAME}</p>
-                                {clientInfo.IS_COUPLE && <p className="text-sm text-blue-600">Will also generate for: {clientInfo.SPOUSE_NAME}</p>}
-                            </div>
-                            
-                            <div className="space-y-6">
-                                {/* Client's Agents */}
-                                <div>
-                                    <h2 className="text-xl font-semibold mb-4">{clientInfo.CLIENT_NAME}'s Agents</h2>
-                                    
-                                    <div className="mb-4">
-                                        <label className="block text-sm font-medium mb-1">Primary Agent Name *</label>
-                                        <input type="text" name="PRIMARY_AGENT_NAME" value={docData.PRIMARY_AGENT_NAME} onChange={handleDocDataChange} className="w-full px-3 py-2 border rounded-md" />
-                                    </div>
-                                    
-                                    <div className="mb-4">
-                                        <label className="block text-sm font-medium mb-1">Relationship *</label>
-                                        <input type="text" name="PRIMARY_AGENT_RELATION" value={docData.PRIMARY_AGENT_RELATION} onChange={handleDocDataChange} className="w-full px-3 py-2 border rounded-md" placeholder="spouse, child, sibling, etc." />
-                                    </div>
-                                    
-                                    {(step === 'poa' || step === 'hcpoa') && (
-                                        <div className="mb-4">
-                                            <label className="block text-sm font-medium mb-1">Primary Agent County *</label>
-                                            <select name="PRIMARY_AGENT_COUNTY" value={docData.PRIMARY_AGENT_COUNTY} onChange={handleDocDataChange} className="w-full px-3 py-2 border rounded-md">
-                                                {tennesseeCounties.map(c => <option key={c} value={c}>{c}</option>)}
-                                            </select>
-                                        </div>
-                                    )}
-                                    
-                                    <div className="mb-4">
-                                        <label className="block text-sm font-medium mb-1">Alternate Agent Name *</label>
-                                        <input type="text" name="ALTERNATE_AGENT_NAME" value={docData.ALTERNATE_AGENT_NAME} onChange={handleDocDataChange} className="w-full px-3 py-2 border rounded-md" />
-                                    </div>
-                                    
-                                    <div className="mb-4">
-                                        <label className="block text-sm font-medium mb-1">Alternate Relationship *</label>
-                                        <input type="text" name="ALTERNATE_AGENT_RELATION" value={docData.ALTERNATE_AGENT_RELATION} onChange={handleDocDataChange} className="w-full px-3 py-2 border rounded-md" placeholder="child, sibling, friend, etc." />
-                                    </div>
-                                    
-                                    {(step === 'poa' || step === 'hcpoa') && (
-                                        <div className="mb-4">
-                                            <label className="block text-sm font-medium mb-1">Alternate Agent County *</label>
-                                            <select name="ALTERNATE_AGENT_COUNTY" value={docData.ALTERNATE_AGENT_COUNTY} onChange={handleDocDataChange} className="w-full px-3 py-2 border rounded-md">
-                                                {tennesseeCounties.map(c => <option key={c} value={c}>{c}</option>)}
-                                            </select>
-                                        </div>
-                                    )}
-                                </div>
-                                
-                                {/* Spouse's Agents (if couple) */}
-                                {clientInfo.IS_COUPLE && (
-                                    <div className="border-t pt-6">
-                                        <h2 className="text-xl font-semibold mb-4">{clientInfo.SPOUSE_NAME}'s Agents</h2>
-                                        
-                                        <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-                                            <label className="flex items-start">
-                                                <input 
-                                                    type="checkbox" 
-                                                    name="SPOUSE_AGENTS_RECIPROCAL" 
-                                                    checked={docData.SPOUSE_AGENTS_RECIPROCAL} 
-                                                    onChange={handleDocDataChange} 
-                                                    className="mr-3 mt-1" 
-                                                />
-                                                <div>
-                                                    <span className="font-medium">Reciprocal (Recommended)</span>
-                                                    <p className="text-sm text-gray-600">
-                                                        {clientInfo.SPOUSE_NAME}'s primary agent will be {clientInfo.CLIENT_NAME}, 
-                                                        with the same alternate agent.
-                                                    </p>
-                                                </div>
-                                            </label>
-                                        </div>
-                                        
-                                        {!docData.SPOUSE_AGENTS_RECIPROCAL && (
-                                            <div className="space-y-4 p-4 border rounded-lg">
-                                                <p className="text-sm text-gray-600 mb-3">Custom agents for {clientInfo.SPOUSE_NAME}:</p>
-                                                
-                                                <div>
-                                                    <label className="block text-sm font-medium mb-1">Primary Agent Name *</label>
-                                                    <input type="text" name="SPOUSE_PRIMARY_AGENT_NAME" value={docData.SPOUSE_PRIMARY_AGENT_NAME} onChange={handleDocDataChange} className="w-full px-3 py-2 border rounded-md" />
-                                                </div>
-                                                
-                                                <div>
-                                                    <label className="block text-sm font-medium mb-1">Relationship *</label>
-                                                    <input type="text" name="SPOUSE_PRIMARY_AGENT_RELATION" value={docData.SPOUSE_PRIMARY_AGENT_RELATION} onChange={handleDocDataChange} className="w-full px-3 py-2 border rounded-md" />
-                                                </div>
-                                                
-                                                {(step === 'poa' || step === 'hcpoa') && (
-                                                    <div>
-                                                        <label className="block text-sm font-medium mb-1">Primary Agent County *</label>
-                                                        <select name="SPOUSE_PRIMARY_AGENT_COUNTY" value={docData.SPOUSE_PRIMARY_AGENT_COUNTY} onChange={handleDocDataChange} className="w-full px-3 py-2 border rounded-md">
-                                                            {tennesseeCounties.map(c => <option key={c} value={c}>{c}</option>)}
-                                                        </select>
-                                                    </div>
-                                                )}
-                                                
-                                                <div>
-                                                    <label className="block text-sm font-medium mb-1">Alternate Agent Name *</label>
-                                                    <input type="text" name="SPOUSE_ALTERNATE_AGENT_NAME" value={docData.SPOUSE_ALTERNATE_AGENT_NAME} onChange={handleDocDataChange} className="w-full px-3 py-2 border rounded-md" />
-                                                </div>
-                                                
-                                                <div>
-                                                    <label className="block text-sm font-medium mb-1">Alternate Relationship *</label>
-                                                    <input type="text" name="SPOUSE_ALTERNATE_AGENT_RELATION" value={docData.SPOUSE_ALTERNATE_AGENT_RELATION} onChange={handleDocDataChange} className="w-full px-3 py-2 border rounded-md" />
-                                                </div>
-                                                
-                                                {(step === 'poa' || step === 'hcpoa') && (
-                                                    <div>
-                                                        <label className="block text-sm font-medium mb-1">Alternate Agent County *</label>
-                                                        <select name="SPOUSE_ALTERNATE_AGENT_COUNTY" value={docData.SPOUSE_ALTERNATE_AGENT_COUNTY} onChange={handleDocDataChange} className="w-full px-3 py-2 border rounded-md">
-                                                            {tennesseeCounties.map(c => <option key={c} value={c}>{c}</option>)}
-                                                        </select>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                                
-                                <button 
-                                    onClick={handleGenerateAndNext} 
-                                    disabled={!docData.PRIMARY_AGENT_NAME || !docData.ALTERNATE_AGENT_NAME || (clientInfo.IS_COUPLE && !docData.SPOUSE_AGENTS_RECIPROCAL && !docData.SPOUSE_PRIMARY_AGENT_NAME)}
-                                    className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-400"
-                                >
-                                    Generate & Continue
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                );
+            
+            h1 {
+                font-size: 2rem;
             }
-
-            if (step === 'complete') {
-                const docsGenerated = clientInfo.IS_COUPLE ? generatedDocs.length * 2 : generatedDocs.length;
-                
-                return (
-                    <div className="min-h-screen bg-gradient-to-br from-green-600 to-blue-700 py-12 px-4 flex items-center justify-center">
-                        <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-2xl p-8 text-center">
-                            <div className="text-6xl mb-4">✅</div>
-                            <h1 className="text-4xl font-bold text-gray-900 mb-4">All Documents Generated!</h1>
-                            <p className="text-gray-600 mb-6">
-                                {clientInfo.IS_COUPLE 
-                                    ? `Generated ${docsGenerated} documents total (${generatedDocs.length} each for ${clientInfo.CLIENT_NAME} and ${clientInfo.SPOUSE_NAME})`
-                                    : `Generated ${docsGenerated} documents for ${clientInfo.CLIENT_NAME}`
-                                }
-                            </p>
-                            
-                            <div className="bg-gray-50 rounded-lg p-6 mb-6">
-                                <h2 className="font-semibold mb-2">Documents Created:</h2>
-                                <ul className="text-left space-y-1">
-                                    {generatedDocs.map(doc => (
-                                        <li key={doc} className="flex items-center">
-                                            <span className="text-green-600 mr-2">✓</span>
-                                            {doc.toUpperCase()}
-                                            {clientInfo.IS_COUPLE && <span className="text-sm text-gray-500 ml-2">(x2 - one for each spouse)</span>}
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                            
-                            <button onClick={reset} className="bg-blue-600 text-white py-3 px-8 rounded-lg font-semibold hover:bg-blue-700">
-                                Generate More Documents
-                            </button>
-                        </div>
-                    </div>
-                );
+            
+            .generator-list {
+                grid-template-columns: 1fr;
             }
         }
-
-        ReactDOM.render(<DocumentGenerator />, document.getElementById('root'));
-    </script>
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Muletown Law</h1>
+        <p class="subtitle">Tennessee Legal Document Generator</p>
+        
+        <div class="category-header">Estate Planning Documents</div>
+        <div class="generator-list">
+            <a href="will.html" class="generator-card">
+                <span class="arrow">â†’</span>
+                <div class="generator-title">
+                    Last Will & Testament
+                </div>
+                <p class="generator-description">
+                    Generate a comprehensive Last Will and Testament with executor designation, 
+                    guardianship provisions, and asset distribution instructions.
+                </p>
+            </a>
+            
+            <a href="poa.html" class="generator-card">
+                <span class="arrow">â†’</span>
+                <div class="generator-title">
+                    Power of Attorney
+                </div>
+                <p class="generator-description">
+                    Create a Durable General Power of Attorney with comprehensive authority 
+                    grants for financial, legal, and administrative matters.
+                </p>
+            </a>
+        </div>
+        
+        <div class="category-header">Healthcare Documents</div>
+        <div class="generator-list">
+            <a href="hcpoa.html" class="generator-card">
+                <span class="arrow">â†’</span>
+                <div class="generator-title">
+                    Healthcare Power of Attorney
+                </div>
+                <p class="generator-description">
+                    Designate healthcare decision-makers with authority to make medical 
+                    decisions on your behalf, including end-of-life care instructions.
+                </p>
+            </a>
+            
+            <a href="acp.html" class="generator-card">
+                <span class="arrow">â†’</span>
+                <div class="generator-title">
+                    Advance Care Plan
+                </div>
+                <p class="generator-description">
+                    Specify your healthcare preferences for quality of life determinations, 
+                    treatment options, and organ donation decisions.
+                </p>
+            </a>
+        </div>
+        
+        <footer>
+            <p>Muletown Law, P.C.</p>
+            <p>1109 S Garden Street, Columbia, TN 38401</p>
+        </footer>
+    </div>
 </body>
 </html>
