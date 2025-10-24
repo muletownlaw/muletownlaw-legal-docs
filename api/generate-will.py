@@ -148,6 +148,12 @@ def generate_will_document(data):
     # Step 1: Replace all variables FIRST
     replace_in_document(doc, replacements)
     
+    # Step 1b: Normalize spaces (replace non-breaking spaces with regular spaces)
+    for para in doc.paragraphs:
+        for run in para.runs:
+            if run.text:
+                run.text = run.text.replace('\xa0', ' ')
+    
     # Step 2: Handle conditional sections by modifying text, not removing paragraphs
     for para in doc.paragraphs:
         text = para.text
@@ -283,14 +289,8 @@ def generate_will_document(data):
                 # SPECIAL: Fix executor appointment - REPLACE instead of empty
                 if 'appoint' in text.lower() and 'executor' in text.lower():
                     if f'my {spouse_type}, ,' in text:
-                        # Replace with alternate executor
-                        new_text = text.replace(
-                            f'my {spouse_type}, ,',
-                            replacements['{ALTERNATE_EXECUTOR_NAME}'] + ','
-                        ).replace(
-                            f'my said {spouse_type}',
-                            replacements['{ALTERNATE_EXECUTOR_NAME}']
-                        )
+                        # Complete rewrite for alternate executor
+                        new_text = f"I appoint {replacements['{ALTERNATE_EXECUTOR_NAME}']}, my {replacements['{ALTERNATE_EXECUTOR_RELATION}']}, a resident of {replacements['{ALTERNATE_EXECUTOR_COUNTY}']} County, {replacements['{ALTERNATE_EXECUTOR_STATE}']}, as {replacements['{EXECUTOR_TITLE}']} of this, my Last Will and Testament. If my said {replacements['{ALTERNATE_EXECUTOR_RELATION}']} is unwilling or unable to serve in said capacity, then I appoint such person as may qualify under the laws of the State of Tennessee."
                         for run in para.runs:
                             run.text = ''
                         if para.runs:
@@ -300,7 +300,7 @@ def generate_will_document(data):
                 # SPECIAL: Rewrite children disposition for unmarried
                 if f'If my said {spouse_type}, ,' in text and 'children' in text.lower():
                     # Complete rewrite for unmarried
-                    new_text = f"I give, devise and bequeath all the rest, residue and remainder of the property which I own or have the right to dispose of at my death to my {child_or_children}, {children_list} (\"my {child_or_children}\"), in equal shares, share and share alike."
+                    new_text = f"I give, devise and bequeath all the rest, residue and remainder of the property which I own or have the right to dispose of at my death to my {replacements['{CHILD_OR_CHILDREN}']}, {replacements['{CHILDREN_LIST}']} (\"my {replacements['{CHILD_OR_CHILDREN}']}\"), in equal shares, share and share alike."
                     for run in para.runs:
                         run.text = ''
                     if para.runs:
