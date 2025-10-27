@@ -9,6 +9,43 @@ import os
 from datetime import datetime
 import re
 
+def int_to_roman(num):
+    """Convert integer to Roman numeral"""
+    val = [
+        1000, 900, 500, 400,
+        100, 90, 50, 40,
+        10, 9, 5, 4,
+        1
+    ]
+    syms = [
+        "M", "CM", "D", "CD",
+        "C", "XC", "L", "XL",
+        "X", "IX", "V", "IV",
+        "I"
+    ]
+    roman_num = ''
+    i = 0
+    while num > 0:
+        for _ in range(num // val[i]):
+            roman_num += syms[i]
+            num -= val[i]
+        i += 1
+    return roman_num
+
+def renumber_articles(doc, start_from_para_index):
+    """Renumber all articles starting from given paragraph index"""
+    article_pattern = re.compile(r'^Article\s+([IVXLCDM]+)\s+-\s+(.+)$')
+    current_article_num = 6  # Start from VI since trust is VI
+
+    for i in range(start_from_para_index, len(doc.paragraphs)):
+        para = doc.paragraphs[i]
+        match = article_pattern.match(para.text)
+        if match:
+            article_title = match.group(2)
+            new_roman = int_to_roman(current_article_num)
+            para.text = f'Article {new_roman} - {article_title}'
+            current_article_num += 1
+
 def add_page_numbers(doc):
     """Add page numbers to footer"""
     for section in doc.sections:
@@ -230,10 +267,13 @@ def insert_trust_for_minors(doc, data, children):
                 new_para.style = 'Pleading Body'
             except:
                 pass
-            
+
             new_para._element.getparent().remove(new_para._element)
             doc.paragraphs[insert_index]._element.addprevious(new_para._element)
             insert_index += 1
+
+    # Renumber subsequent articles (VI becomes VII, VII becomes VIII, etc.)
+    renumber_articles(doc, insert_index)
 
 def calculate_age(dob_string):
     """Calculate age from birthdate string"""
