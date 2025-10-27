@@ -32,10 +32,10 @@ def int_to_roman(num):
         i += 1
     return roman_num
 
-def renumber_articles(doc, start_from_para_index):
+def renumber_articles(doc, start_from_para_index, starting_article_num):
     """Renumber all articles starting from given paragraph index"""
     article_pattern = re.compile(r'^Article\s+([IVXLCDM]+)\s+-\s+(.+)$')
-    current_article_num = 6  # Start from VI since trust is VI
+    current_article_num = starting_article_num
 
     for i in range(start_from_para_index, len(doc.paragraphs)):
         para = doc.paragraphs[i]
@@ -224,13 +224,10 @@ def insert_article_iii_clauses(doc, data):
         clause_text = load_clause_text('LWT_-_Clause_-_Real_Estate_Indebtedness.txt')
         if clause_text:
             clauses_to_insert.append(clause_text)
-    
-    # 4. No Contest - FOURTH
-    if data.get('INCLUDE_NO_CONTEST'):
-        clause_text = load_clause_text('LWT_-_Clause_-_No_Contest_Provision.txt')
-        if clause_text:
-            clauses_to_insert.append(clause_text)
-    
+
+    # Note: No Contest is now inserted as a separate article (Article IV)
+    # See insert_no_contest_article() function
+
     # Insert clauses
     for clause_text in clauses_to_insert:
         # Create new paragraph with Pleading Body style
@@ -251,6 +248,59 @@ def insert_article_iii_clauses(doc, data):
         doc.paragraphs[insert_index]._element.addprevious(spacing_para._element)
         insert_index += 1
 
+def insert_no_contest_article(doc, data):
+    """Insert no-contest clause as Article IV if requested"""
+    if not data.get('INCLUDE_NO_CONTEST'):
+        return False
+
+    # Find the insertion point (before Executor article)
+    insert_index = None
+    for i, para in enumerate(doc.paragraphs):
+        if '##INSERT_NO_CONTEST_ARTICLE##' in para.text:
+            insert_index = i
+            # Remove the marker
+            p = para._element
+            p.getparent().remove(p)
+            break
+
+    if insert_index is None:
+        return False
+
+    # Load no-contest clause text
+    clause_text = load_clause_text('LWT_-_Clause_-_No_Contest_Provision.txt')
+    if not clause_text:
+        return False
+
+    # Add Article IV header
+    article_para = doc.add_paragraph('Article IV - No Contest Provision')
+    try:
+        article_para.style = 'Pleading Heading'
+    except:
+        pass
+
+    article_para._element.getparent().remove(article_para._element)
+    doc.paragraphs[insert_index]._element.addprevious(article_para._element)
+    insert_index += 1
+
+    # Add clause text
+    clause_para = doc.add_paragraph(clause_text)
+    try:
+        clause_para.style = 'Pleading Body'
+    except:
+        pass
+
+    clause_para._element.getparent().remove(clause_para._element)
+    doc.paragraphs[insert_index]._element.addprevious(clause_para._element)
+    insert_index += 1
+
+    # Add spacing
+    spacing_para = doc.add_paragraph()
+    spacing_para._element.getparent().remove(spacing_para._element)
+    doc.paragraphs[insert_index]._element.addprevious(spacing_para._element)
+    insert_index += 1
+
+    return insert_index  # Return index for renumbering
+
 def insert_trust_for_minors(doc, data, children):
     """Insert trust for minors at ##INSERT_NEW_ARTICLES## marker if needed"""
     # Check if any child is under 25
@@ -260,9 +310,9 @@ def insert_trust_for_minors(doc, data, children):
         if age < 25:
             has_minor = True
             break
-    
+
     if not has_minor:
-        return
+        return False
     
     # Find the insertion point
     insert_index = None
@@ -273,9 +323,9 @@ def insert_trust_for_minors(doc, data, children):
             p = para._element
             p.getparent().remove(p)
             break
-    
+
     if insert_index is None:
-        return
+        return False
     
     # Load trust template
     trust_text = load_clause_text('LWT_-_Trust_for_Minor_Children.txt')
@@ -309,8 +359,7 @@ def insert_trust_for_minors(doc, data, children):
             doc.paragraphs[insert_index]._element.addprevious(new_para._element)
             insert_index += 1
 
-    # Renumber subsequent articles (VI becomes VII, VII becomes VIII, etc.)
-    renumber_articles(doc, insert_index)
+    return insert_index  # Return index for renumbering
 
 def calculate_age(dob_string):
     """Calculate age from birthdate string"""
@@ -455,12 +504,54 @@ def generate_will_document(data):
     
     # Step 3: Insert Article III clauses
     insert_article_iii_clauses(doc, data)
-    
-    # Step 4: Insert trust for minors if needed
+
+    # Step 4: Insert no-contest as Article IV if requested
+    no_contest_inserted = insert_no_contest_article(doc, data)
+
+    # Step 5: Insert trust for minors if needed
+    trust_inserted = False
     if children:
-        insert_trust_for_minors(doc, data, children)
-    
-    # Step 5: Add page numbers if not already there
+        trust_result = insert_trust_for_minors(doc, data, children)
+        if trust_result:
+            trust_inserted = True
+
+    # Step 6: Renumber articles based on what was inserted
+    if no_contest_inserted or trust_inserted:
+        # Find the first article to renumber
+        # If no-contest was inserted, Executor is now Article V (start renumbering from there)
+        # If trust was inserted, renumber from after trust
+        article_pattern = re.compile(r'^Article\s+([IVXLCDM]+)\s+-\s+(.+)$')
+
+        if no_contest_inserted and not trust_inserted:
+            # No-contest inserted as IV, Executor becomes V
+            # Renumber from Executor onwards as V, VI, VII...
+            for i, para in enumerate(doc.paragraphs):
+                if 'Article' in para.text and 'Appointment of Executor' in para.text:
+                    renumber_articles(doc, i, 5)  # Start from V
+                    break
+        elif trust_inserted and not no_contest_inserted:
+            # Trust inserted (becomes VI), renumber from after trust as VII, VIII...
+            for i, para in enumerate(doc.paragraphs):
+                if 'Article' in para.text and 'Trust for Minor Children' in para.text:
+                    # Find first article after trust
+                    for j in range(i+1, len(doc.paragraphs)):
+                        if article_pattern.match(doc.paragraphs[j].text):
+                            renumber_articles(doc, j, 7)  # Start from VII
+                            break
+                    break
+        elif no_contest_inserted and trust_inserted:
+            # Both inserted: no-contest is IV, Executor is V, Digital is VI, Trust is VII
+            # Renumber from after trust as VIII, IX...
+            for i, para in enumerate(doc.paragraphs):
+                if 'Article' in para.text and 'Trust for Minor Children' in para.text:
+                    # Find first article after trust
+                    for j in range(i+1, len(doc.paragraphs)):
+                        if article_pattern.match(doc.paragraphs[j].text):
+                            renumber_articles(doc, j, 8)  # Start from VIII
+                            break
+                    break
+
+    # Step 7: Add page numbers if not already there
     add_page_numbers(doc)
     
     # Save to BytesIO
