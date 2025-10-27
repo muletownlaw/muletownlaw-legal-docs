@@ -27,3 +27,10 @@ Thumbs.db
 # Environment variables
 .env
 .env.local
+
+# Test outputs
+tests/__pycache__/
+.pytest_cache/
+test_output*.docx
+.coverage
+htmlcov/

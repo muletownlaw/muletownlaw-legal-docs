@@ -244,21 +244,22 @@ def calculate_age(dob_string):
         today = datetime.now()
         age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
         return age
-    except:
+    except (ValueError, TypeError) as e:
+        # If date parsing fails, return 0 (treat as no DOB)
         return 0
 
 def format_children_list(children):
-    """Format children for the will"""
+    """Format children for the will with proper readability"""
     if not children:
-        return '', 'no'
-    
+        return '', '', 'no'
+
     detailed_list = []
     simple_list = []
-    
+
     for child in children:
         name = child.get('name', '')
         dob = child.get('dob', '')
-        
+
         if name:
             simple_list.append(name)
             if dob:
@@ -267,16 +268,41 @@ def format_children_list(children):
                     date_obj = datetime.strptime(dob, '%Y-%m-%d')
                     formatted_date = date_obj.strftime('%B %d, %Y')
                     detailed_list.append(f"{name}, born {formatted_date}")
-                except:
+                except (ValueError, TypeError) as e:
+                    # If date parsing fails, just use the name
                     detailed_list.append(name)
             else:
                 detailed_list.append(name)
-    
-    detailed = ' and '.join(detailed_list) if len(detailed_list) == 2 else ', and '.join([', '.join(detailed_list[:-1]), detailed_list[-1]]) if len(detailed_list) > 2 else detailed_list[0] if detailed_list else ''
-    simple = ' and '.join(simple_list) if len(simple_list) == 2 else ', '.join(simple_list[:-1]) + ', and ' + simple_list[-1] if len(simple_list) > 2 else simple_list[0] if simple_list else ''
-    
-    num_word = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'][len(children)] if len(children) <= 10 else str(len(children))
-    
+
+    # Format detailed list with semicolons for better readability in legal documents
+    # Example: "John Doe, born January 15, 2000; Jane Doe, born March 20, 2002; and Michael Doe, born June 10, 2005"
+    if len(detailed_list) == 0:
+        detailed = ''
+    elif len(detailed_list) == 1:
+        detailed = detailed_list[0]
+    elif len(detailed_list) == 2:
+        detailed = f"{detailed_list[0]} and {detailed_list[1]}"
+    else:
+        # Multiple children: use semicolons to separate entries for clarity
+        detailed = '; '.join(detailed_list[:-1]) + f'; and {detailed_list[-1]}'
+
+    # Format simple list with commas and "and" for the last item
+    if len(simple_list) == 0:
+        simple = ''
+    elif len(simple_list) == 1:
+        simple = simple_list[0]
+    elif len(simple_list) == 2:
+        simple = f"{simple_list[0]} and {simple_list[1]}"
+    else:
+        simple = ', '.join(simple_list[:-1]) + f', and {simple_list[-1]}'
+
+    # Convert number to word
+    num_words = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten']
+    if len(children) <= 10:
+        num_word = num_words[len(children)]
+    else:
+        num_word = str(len(children))
+
     return detailed, simple, num_word
 
 def generate_will_document(data):
