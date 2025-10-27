@@ -162,9 +162,14 @@ def handle_conditional_blocks(doc, data, children=None):
                 match = re.search(r'##If trust for minors exists:\s*([^#]+)##', text)
                 if match:
                     trust_ref = match.group(1).strip()
-                    # Replace per stirpes with trust reference
-                    para.text = text.replace('per stirpes.', 'per stirpes, ' + trust_ref)
-                    para.text = re.sub(r'\s*##If trust for minors exists:[^#]+##', '', para.text)
+                    # Remove the entire marker first
+                    clean_text = re.sub(r'\s*##If trust for minors exists:[^#]+##', '', text)
+                    # Then append the trust reference after "per stirpes"
+                    # Make sure we add the period back if it was removed
+                    if 'per stirpes.' in clean_text:
+                        para.text = clean_text.replace('per stirpes.', f'per stirpes, {trust_ref}')
+                    elif 'per stirpes' in clean_text:
+                        para.text = clean_text.replace('per stirpes', f'per stirpes, {trust_ref}')
             else:
                 # Remove the conditional marker only
                 para.text = re.sub(r'\s*##If trust for minors exists:[^#]+##', '', text)
@@ -515,41 +520,31 @@ def generate_will_document(data):
         if trust_result:
             trust_inserted = True
 
-    # Step 6: Renumber articles based on what was inserted
-    if no_contest_inserted or trust_inserted:
-        # Find the first article to renumber
-        # If no-contest was inserted, Executor is now Article V (start renumbering from there)
-        # If trust was inserted, renumber from after trust
-        article_pattern = re.compile(r'^Article\s+([IVXLCDM]+)\s+-\s+(.+)$')
+    # Step 6: Renumber articles from IV onwards based on what was inserted
+    # Articles I-III are fixed, everything from IV onwards needs sequential numbering
+    article_pattern = re.compile(r'^Article\s+([IVXLCDM]+)\s+-\s+(.+)$')
+    article_num = 4  # Start from IV
+    found_article_iv = False
 
-        if no_contest_inserted and not trust_inserted:
-            # No-contest inserted as IV, Executor becomes V
-            # Renumber from Executor onwards as V, VI, VII...
-            for i, para in enumerate(doc.paragraphs):
-                if 'Article' in para.text and 'Appointment of Executor' in para.text:
-                    renumber_articles(doc, i, 5)  # Start from V
-                    break
-        elif trust_inserted and not no_contest_inserted:
-            # Trust inserted (becomes VI), renumber from after trust as VII, VIII...
-            for i, para in enumerate(doc.paragraphs):
-                if 'Article' in para.text and 'Trust for Minor Children' in para.text:
-                    # Find first article after trust
-                    for j in range(i+1, len(doc.paragraphs)):
-                        if article_pattern.match(doc.paragraphs[j].text):
-                            renumber_articles(doc, j, 7)  # Start from VII
-                            break
-                    break
-        elif no_contest_inserted and trust_inserted:
-            # Both inserted: no-contest is IV, Executor is V, Digital is VI, Trust is VII
-            # Renumber from after trust as VIII, IX...
-            for i, para in enumerate(doc.paragraphs):
-                if 'Article' in para.text and 'Trust for Minor Children' in para.text:
-                    # Find first article after trust
-                    for j in range(i+1, len(doc.paragraphs)):
-                        if article_pattern.match(doc.paragraphs[j].text):
-                            renumber_articles(doc, j, 8)  # Start from VIII
-                            break
-                    break
+    for i, para in enumerate(doc.paragraphs):
+        match = article_pattern.match(para.text.strip())
+        if match and found_article_iv:
+            # This is an article that needs renumbering
+            article_title = match.group(2)
+            new_roman = int_to_roman(article_num)
+            para.text = f'Article {new_roman} - {article_title}'
+            article_num += 1
+        elif match:
+            # Check if this is Article IV or later (start of renumbering)
+            current_num_text = match.group(1)
+            article_title = match.group(2)
+            # Check if this is the first article after Article III
+            if current_num_text in ['IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']:
+                found_article_iv = True
+                # Renumber this one too
+                new_roman = int_to_roman(article_num)
+                para.text = f'Article {new_roman} - {article_title}'
+                article_num += 1
 
     # Step 7: Add page numbers if not already there
     add_page_numbers(doc)
