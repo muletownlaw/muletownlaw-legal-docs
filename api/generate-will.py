@@ -341,6 +341,8 @@ def generate_will_document(data):
         '{CLIENT_PRONOUN_POSSESSIVE}': 'his' if is_male else 'her',
         '{he/she}': 'he' if is_male else 'she',
         '{his/her}': 'his' if is_male else 'her',
+        '{SPOUSE_PRONOUN}': 'he' if spouse_is_male else 'she',
+        '{SPOUSE_PRONOUN_POSSESSIVE}': 'his' if spouse_is_male else 'her',
         '{TESTATOR_TITLE}': 'Testator' if is_male else 'Testatrix',
         '{EXECUTOR_TITLE}': 'Executor' if is_male else 'Executrix',
         '{PRIMARY_EXECUTOR}': data.get('PRIMARY_EXECUTOR', ''),
