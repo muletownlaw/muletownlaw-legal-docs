@@ -114,15 +114,25 @@ def replace_in_document(doc, replacements):
                         if key in para_text:
                             replace_in_runs(para, key, str(value))
 
-def handle_conditional_blocks(doc, data):
+def handle_conditional_blocks(doc, data, children=None):
     """Handle ##IF_MARRIED## and similar conditional blocks"""
     is_married = data.get('IS_MARRIED', True)
-    
+    has_contingent_beneficiary = bool(data.get('CONTINGENT_BENEFICIARY_NAME', '').strip())
+
+    # Check if trust for minors exists (any child under 25)
+    has_trust_for_minors = False
+    if children:
+        for child in children:
+            age = calculate_age(child.get('dob', ''))
+            if age < 25:
+                has_trust_for_minors = True
+                break
+
     paragraphs_to_remove = []
-    
+
     for i, para in enumerate(doc.paragraphs):
         text = para.text
-        
+
         # Handle ##Delete first sentence if unmarried##
         if '##Delete first sentence if unmarried##' in text and not is_married:
             # Remove everything before this marker
@@ -131,11 +141,38 @@ def handle_conditional_blocks(doc, data):
                 # Keep everything after the marker
                 new_text = text.split('##Delete first sentence if unmarried##')[1]
                 para.text = new_text.strip()
-        
+
+        # Handle ##If no contingent beneficiary, replace with:##
+        if '##If no contingent beneficiary, replace with:' in text:
+            if not has_contingent_beneficiary:
+                # Extract the replacement text
+                match = re.search(r'##If no contingent beneficiary, replace with:\s*([^#]+)##', text)
+                if match:
+                    replacement = match.group(1).strip()
+                    # Replace entire paragraph with the fallback text
+                    para.text = text.split('##If no contingent beneficiary')[0].strip() + ' ' + replacement
+            else:
+                # Remove the conditional marker
+                para.text = re.sub(r'\s*##If no contingent beneficiary[^#]+##', '', text)
+
+        # Handle ##If trust for minors exists:##
+        if '##If trust for minors exists:' in text:
+            if has_trust_for_minors:
+                # Extract the trust reference text
+                match = re.search(r'##If trust for minors exists:\s*([^#]+)##', text)
+                if match:
+                    trust_ref = match.group(1).strip()
+                    # Replace per stirpes with trust reference
+                    para.text = text.replace('per stirpes.', 'per stirpes, ' + trust_ref)
+                    para.text = re.sub(r'\s*##If trust for minors exists:[^#]+##', '', para.text)
+            else:
+                # Remove the conditional marker only
+                para.text = re.sub(r'\s*##If trust for minors exists:[^#]+##', '', text)
+
         # Handle ##IF_MARRIED## blocks
         if '##IF_MARRIED##' in text and not is_married:
             paragraphs_to_remove.append(para)
-        
+
         # Clean up any remaining ## markers
         if '##' in text:
             # Remove all ## markers
@@ -144,7 +181,7 @@ def handle_conditional_blocks(doc, data):
                 para.text = cleaned
             elif not cleaned.strip() and '##INSERT' not in text:
                 paragraphs_to_remove.append(para)
-    
+
     # Remove marked paragraphs
     for para in paragraphs_to_remove:
         p = para._element
@@ -411,8 +448,8 @@ def generate_will_document(data):
         replacements['{CHILDREN_DETAILED}'] = ''
     
     # Step 1: Handle conditional blocks
-    handle_conditional_blocks(doc, data)
-    
+    handle_conditional_blocks(doc, data, children)
+
     # Step 2: Replace all variables
     replace_in_document(doc, replacements)
     
