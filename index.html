@@ -135,21 +135,29 @@
                 let requestData = {};
 
                 if (docType === 'will') {
+                    // Infer marriage status from relationship
+                    const isMarried = data.IS_COUPLE || data.FIDUCIARY_RELATIONSHIP === 'spouse';
+                    const spouseName = data.IS_COUPLE ? data.SPOUSE_NAME :
+                                     (data.FIDUCIARY_RELATIONSHIP === 'spouse' ? data.FIDUCIARY_NAME : '');
+                    const spouseGender = data.IS_COUPLE ? data.SPOUSE_GENDER :
+                                        (data.FIDUCIARY_RELATIONSHIP === 'spouse' ?
+                                         (clientGender === 'Male' ? 'Female' : 'Male') : '');
+
                     requestData = {
                         CLIENT_NAME: clientName,
                         CLIENT_GENDER: clientGender,
                         COUNTY: clientCounty,
-                        IS_MARRIED: data.IS_COUPLE && clientName === data.CLIENT_NAME,
-                        SN_BENEFICIARY: data.SPOUSE_NAME,
-                        SPOUSE_GENDER: data.SPOUSE_GENDER,
+                        IS_MARRIED: isMarried,
+                        SPOUSE_NAME: spouseName,
+                        SPOUSE_GENDER: spouseGender,
                         children: JSON.stringify(data.children),
                         PRIMARY_EXECUTOR: data.FIDUCIARY_NAME,
                         ALTERNATE_EXECUTOR: data.ALTERNATE_FIDUCIARY_NAME,
                         ALTERNATE_EXECUTOR_RELATION: data.ALTERNATE_FIDUCIARY_RELATIONSHIP,
                         ALTERNATE_EXECUTOR_COUNTY: data.ALTERNATE_FIDUCIARY_COUNTY,
                         ALTERNATE_EXECUTOR_STATE: 'Tennessee',
-                        CONTINGENT_BENEFICIARY_NAME: data.CONTINGENT_BENEFICIARY_NAME,
-                        CONTINGENT_BENEFICIARY_RELATION: data.CONTINGENT_BENEFICIARY_RELATION,
+                        CONTINGENT_BENEFICIARY_NAME: data.CONTINGENT_BENEFICIARY_NAME || '',
+                        CONTINGENT_BENEFICIARY_RELATION: data.CONTINGENT_BENEFICIARY_RELATION || '',
                         TRUSTEE_NAME: data.TRUSTEE_NAME || data.FIDUCIARY_NAME,
                         EXECUTION_MONTH: data.EXEC_MONTH,
                         EXECUTION_YEAR: data.EXEC_YEAR,

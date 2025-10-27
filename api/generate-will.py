@@ -332,14 +332,19 @@ def generate_will_document(data):
     replacements = {
         '{CLIENT_NAME}': data.get('CLIENT_NAME', ''),
         '{CLIENT_COUNTY}': data.get('COUNTY', ''),
-        '{CLIENT_SPOUSE_NAME}': data.get('SN_BENEFICIARY', ''),
+        '{COUNTY}': data.get('COUNTY', ''),
+        '{SPOUSE_NAME}': data.get('SPOUSE_NAME', ''),
         '{NUMBER_OF_CHILDREN}': str(len(children)),
         '{CHILDREN_LIST}': children_simple,
         '{SPOUSE_TYPE}': 'husband' if spouse_is_male else 'wife',
         '{CLIENT_PRONOUN_SUBJECTIVE}': 'he' if is_male else 'she',
         '{CLIENT_PRONOUN_POSSESSIVE}': 'his' if is_male else 'her',
+        '{he/she}': 'he' if is_male else 'she',
+        '{his/her}': 'his' if is_male else 'her',
         '{TESTATOR_TITLE}': 'Testator' if is_male else 'Testatrix',
         '{EXECUTOR_TITLE}': 'Executor' if is_male else 'Executrix',
+        '{PRIMARY_EXECUTOR}': data.get('PRIMARY_EXECUTOR', ''),
+        '{ALTERNATE_EXECUTOR}': data.get('ALTERNATE_EXECUTOR', ''),
         '{ALTERNATE_EXECUTOR_NAME}': data.get('ALTERNATE_EXECUTOR', ''),
         '{ALTERNATE_EXECUTOR_RELATION}': data.get('ALTERNATE_EXECUTOR_RELATION', ''),
         '{ALTERNATE_EXECUTOR_COUNTY}': data.get('ALTERNATE_EXECUTOR_COUNTY', ''),
@@ -348,16 +353,20 @@ def generate_will_document(data):
         '{CONTINGENT_BENEFICIARY_RELATION}': data.get('CONTINGENT_BENEFICIARY_RELATION', ''),
         '{EXEC_MONTH}': data.get('EXECUTION_MONTH', ''),
         '{EXEC_YEAR}': data.get('EXECUTION_YEAR', ''),
+        '{EXECUTION_MONTH}': data.get('EXECUTION_MONTH', ''),
+        '{EXECUTION_YEAR}': data.get('EXECUTION_YEAR', ''),
     }
     
     # For the family status line, use detailed list
     replacements['{NUM_CHILDREN}'] = f"{num_children_word} ({len(children)})" if children else "no"
-    
+
     # If children exist, build the detailed description
     if children:
         replacements['{CHILDREN_DESCRIPTION}'] = children_detailed
+        replacements['{CHILDREN_DETAILED}'] = children_detailed
     else:
         replacements['{CHILDREN_DESCRIPTION}'] = ''
+        replacements['{CHILDREN_DETAILED}'] = ''
     
     # Step 1: Handle conditional blocks
     handle_conditional_blocks(doc, data)
