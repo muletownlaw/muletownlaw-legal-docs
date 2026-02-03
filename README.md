@@ -131,7 +131,15 @@ User fills form → JavaScript validates → POST to /api/generate-poa
 1. Create new HTML form in `public/` folder
 2. Create new Python function in `api/` folder
 3. Follow the pattern from `generate-poa.py`
-
+## Template Management
+   
+   Templates are stored in Google Drive for easy editing by legal staff.
+   
+   - **Edit templates**: Open files in Google Drive
+   - **Changes go live**: Immediately on save
+   - **Version history**: Available in Google Drive
+   
+   See `docs/GOOGLE_DRIVE_SETUP.md` for details.
 ## 📦 Dependencies
 
 - **python-docx** (1.1.0) - Word document generation
@@ -182,6 +190,16 @@ For issues with:
 - **Vercel deployment:** https://vercel.com/docs
 - **Python-docx:** https://python-docx.readthedocs.io/
 - **GitHub:** https://docs.github.com/
+
+- ## Template Management
+   
+   Templates are stored in Google Drive for easy editing by legal staff.
+   
+   - **Edit templates**: Open files in Google Drive
+   - **Changes go live**: Immediately on save
+   - **Version history**: Available in Google Drive
+   
+   See `docs/GOOGLE_DRIVE_SETUP.md` for details.
 
 ## 📄 License
 
