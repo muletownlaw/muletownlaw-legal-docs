@@ -4,322 +4,283 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Power of Attorney Generator - Muletown Law</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        }
-        
-        h1 {
-            color: #2d3748;
-            margin-bottom: 10px;
-            font-size: 2rem;
-        }
-        
-        .subtitle {
-            color: #718096;
-            margin-bottom: 30px;
-            font-size: 1rem;
-        }
-        
-        .back-link {
-            display: inline-block;
-            color: #667eea;
-            text-decoration: none;
-            margin-bottom: 20px;
-            font-weight: 500;
-        }
-        
-        .back-link:hover {
-            text-decoration: underline;
-        }
-        
-        .section {
-            margin-bottom: 30px;
-        }
-        
-        .section-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: #2d3748;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #e2e8f0;
-        }
-        
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        label {
-            display: block;
-            font-weight: 500;
-            color: #4a5568;
-            margin-bottom: 8px;
-        }
-        
-        input, select {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e2e8f0;
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: border-color 0.3s;
-        }
-        
-        input:focus, select:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-        
-        .btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 15px 40px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            cursor: pointer;
-            width: 100%;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
-        }
-        
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-        
-        .error {
-            background: #fed7d7;
-            color: #c53030;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-        
-        .success {
-            background: #c6f6d5;
-            color: #2f855a;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-        
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid #ffffff;
-            border-radius: 50%;
-            border-top-color: transparent;
-            animation: spin 1s ease-in-out infinite;
-            margin-right: 10px;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-    </style>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body>
-    <div class="container">
-        <a href="/" class="back-link">← Back to Home</a>
-        
-        <h1>Power of Attorney Generator</h1>
-        <p class="subtitle">Durable General Power of Attorney for Tennessee</p>
-        
-        <div id="message"></div>
-        
-        <form id="poaForm">
-            <div class="section">
-                <div class="section-title">Firm Information</div>
-                
-                <div class="form-group">
-                    <label for="ATTORNEY_NAME">Preparing Attorney</label>
-                    <input type="text" id="ATTORNEY_NAME" name="ATTORNEY_NAME" placeholder="Thomas M. Hutto" value="Thomas M. Hutto">
-                    <small style="color: #718096; font-size: 0.875rem;">Attorney preparing this document</small>
-                </div>
-            </div>
-            
-            <div class="section">
-                <div class="section-title">Client Information</div>
-                
-                <div class="form-group">
-                    <label for="CLIENT_NAME">Client Name *</label>
-                    <input type="text" id="CLIENT_NAME" name="CLIENT_NAME" required placeholder="John Doe">
-                </div>
-                
-                <div class="form-group">
-                    <label for="CLIENT_GENDER">Client Gender *</label>
-                    <select id="CLIENT_GENDER" name="CLIENT_GENDER" required>
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="COUNTY">County *</label>
-                    <input type="text" id="COUNTY" name="COUNTY" required placeholder="Maury" value="Maury">
-                </div>
-            </div>
-            
-            <div class="section">
-                <div class="section-title">Attorney-in-Fact Information</div>
-                
-                <div class="form-group">
-                    <label for="AIF_NAME">Attorney-in-Fact Name *</label>
-                    <input type="text" id="AIF_NAME" name="AIF_NAME" required placeholder="Jane Doe">
-                </div>
-                
-                <div class="form-group">
-                    <label for="AIF_RELATIONSHIP">Relationship to Client *</label>
-                    <input type="text" id="AIF_RELATIONSHIP" name="AIF_RELATIONSHIP" required placeholder="spouse">
-                </div>
-            </div>
-            
-            <div class="section">
-                <div class="section-title">Alternate Attorney-in-Fact</div>
-                
-                <div class="form-group">
-                    <label for="ALTERNATE_AIF_NAME">Alternate Attorney-in-Fact Name *</label>
-                    <input type="text" id="ALTERNATE_AIF_NAME" name="ALTERNATE_AIF_NAME" required placeholder="Bob Smith">
-                </div>
-                
-                <div class="form-group">
-                    <label for="ALTERNATE_AIF_RELATIONSHIP">Relationship to Client *</label>
-                    <input type="text" id="ALTERNATE_AIF_RELATIONSHIP" name="ALTERNATE_AIF_RELATIONSHIP" required placeholder="sibling">
-                </div>
-            </div>
-            
-            <div class="section">
-                <div class="section-title">Execution Details</div>
-                
-                <div class="form-group">
-                    <label for="EXEC_MONTH">Execution Month *</label>
-                    <input type="text" id="EXEC_MONTH" name="EXEC_MONTH" required placeholder="January">
-                </div>
-                
-                <div class="form-group">
-                    <label for="EXEC_YEAR">Execution Year *</label>
-                    <input type="text" id="EXEC_YEAR" name="EXEC_YEAR" required placeholder="2025" value="2025">
-                </div>
-            </div>
-            
-            <button type="submit" class="btn" id="generateBtn">
-                Generate Document
-            </button>
-        </form>
-    </div>
+    <div id="root"></div>
     
     <script>
-        document.getElementById('poaForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const btn = document.getElementById('generateBtn');
-            const messageDiv = document.getElementById('message');
-            
-            // Get form data
-            const formData = {
-                CLIENT_NAME: document.getElementById('CLIENT_NAME').value,
-                CLIENT_GENDER: document.getElementById('CLIENT_GENDER').value,
-                COUNTY: document.getElementById('COUNTY').value,
-                AIF_NAME: document.getElementById('AIF_NAME').value,
-                AIF_RELATIONSHIP: document.getElementById('AIF_RELATIONSHIP').value,
-                ALTERNATE_AIF_NAME: document.getElementById('ALTERNATE_AIF_NAME').value,
-                ALTERNATE_AIF_RELATIONSHIP: document.getElementById('ALTERNATE_AIF_RELATIONSHIP').value,
-                EXEC_MONTH: document.getElementById('EXEC_MONTH').value,
-                EXEC_YEAR: document.getElementById('EXEC_YEAR').value
-            };
-            
-            // Show loading state
-            btn.disabled = true;
-            btn.innerHTML = '<span class="loading"></span> Generating...';
-            messageDiv.innerHTML = '';
-            
-            try {
-                // Call the API
-                const response = await fetch('/api/generate-poa', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(formData)
+        const { useState } = React;
+
+        function POAGenerator() {
+            const [formData, setFormData] = useState({
+                CLIENT_NAME: '',
+                CLIENT_GENDER: 'Female',
+                COUNTY: 'Maury',
+                AIF_RELATIONSHIP: '',
+                AIF_NAME: '',
+                ALTERNATE_AIF_RELATIONSHIP: '',
+                ALTERNATE_AIF_NAME: '',
+                EXEC_MONTH: 'October',
+                EXEC_YEAR: '2025'
+            });
+
+            const [isGenerating, setIsGenerating] = useState(false);
+            const [error, setError] = useState('');
+            const [success, setSuccess] = useState(false);
+
+            const handleInputChange = (e) => {
+                setFormData({
+                    ...formData,
+                    [e.target.name]: e.target.value
                 });
-                
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('Server error:', errorText);
-                    try {
-                        const error = JSON.parse(errorText);
-                        throw new Error(error.error || 'Failed to generate document');
-                    } catch (e) {
-                        throw new Error(`Server error: ${response.status} - ${errorText.substring(0, 200)}`);
+                if (error) setError('');
+                if (success) setSuccess(false);
+            };
+
+            const validateForm = () => {
+                if (!formData.CLIENT_NAME.trim()) {
+                    setError('Client name is required');
+                    return false;
+                }
+                if (!formData.AIF_NAME.trim()) {
+                    setError('Attorney-in-Fact name is required');
+                    return false;
+                }
+                if (!formData.AIF_RELATIONSHIP.trim()) {
+                    setError('Attorney-in-Fact relationship is required');
+                    return false;
+                }
+                if (!formData.ALTERNATE_AIF_NAME.trim()) {
+                    setError('Alternate Attorney-in-Fact name is required');
+                    return false;
+                }
+                if (!formData.ALTERNATE_AIF_RELATIONSHIP.trim()) {
+                    setError('Alternate Attorney-in-Fact relationship is required');
+                    return false;
+                }
+                return true;
+            };
+
+            const handleGenerate = async () => {
+                if (!validateForm()) {
+                    return;
+                }
+
+                setIsGenerating(true);
+                setError('');
+                setSuccess(false);
+
+                try {
+                    const response = await fetch('/api/generate-poa', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(formData)
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Failed to generate document');
                     }
+
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `POA_${formData.CLIENT_NAME.replace(/\s+/g, '_')}_${Date.now()}.docx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+
+                    setSuccess(true);
+                } catch (err) {
+                    console.error('Error generating document:', err);
+                    setError(err.message || 'An error occurred while generating the document');
+                } finally {
+                    setIsGenerating(false);
                 }
-                
-                // Check content type
-                const contentType = response.headers.get('content-type');
-                console.log('Response content-type:', contentType);
-                
-                // Get the blob
-                const blob = await response.blob();
-                console.log('Blob size:', blob.size, 'Blob type:', blob.type);
-                
-                // Check if blob is valid
-                if (blob.size < 1000) {
-                    // Probably an error, try to read as text
-                    const text = await blob.text();
-                    console.error('Small blob received:', text);
-                    throw new Error('Received invalid document (too small). Check console for details.');
-                }
-                
-                // Create download link
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `POA_${formData.CLIENT_NAME.replace(/\s+/g, '_')}.docx`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(url);
-                
-                // Show success message
-                messageDiv.innerHTML = '<div class="success">✓ Document generated successfully!</div>';
-                
-            } catch (error) {
-                // Show error message
-                messageDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
-                console.error('Error:', error);
-            } finally {
-                // Reset button
-                btn.disabled = false;
-                btn.innerHTML = 'Generate Document';
-            }
-        });
+            };
+
+            return (
+                React.createElement('div', { className: 'min-h-screen bg-gray-100 py-8 px-4' },
+                    React.createElement('div', { className: 'max-w-4xl mx-auto' },
+                        React.createElement('div', { className: 'bg-white rounded-lg shadow-lg p-8' },
+                            React.createElement('div', { className: 'mb-6' },
+                                React.createElement('a', { 
+                                    href: '/', 
+                                    className: 'text-blue-600 hover:text-blue-800'
+                                }, '← Back to Home')
+                            ),
+                            React.createElement('h1', { className: 'text-3xl font-bold text-gray-900 mb-2' }, 'Power of Attorney Generator'),
+                            React.createElement('p', { className: 'text-gray-600 mb-8' }, 'Muletown Law, P.C.'),
+                            
+                            React.createElement('div', { className: 'space-y-8' },
+                                
+                                React.createElement('div', null,
+                                    React.createElement('h2', { className: 'text-xl font-bold text-gray-900 mb-4' }, 'Client Information'),
+                                    React.createElement('div', { className: 'space-y-4' },
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 
+                                                'Client Name ',
+                                                React.createElement('span', { className: 'text-red-500' }, '*')
+                                            ),
+                                            React.createElement('input', {
+                                                type: 'text',
+                                                name: 'CLIENT_NAME',
+                                                value: formData.CLIENT_NAME,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500',
+                                                placeholder: 'Enter client full name'
+                                            })
+                                        ),
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Client Gender'),
+                                            React.createElement('select', {
+                                                name: 'CLIENT_GENDER',
+                                                value: formData.CLIENT_GENDER,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500'
+                                            },
+                                                React.createElement('option', { value: 'Female' }, 'Female'),
+                                                React.createElement('option', { value: 'Male' }, 'Male')
+                                            )
+                                        ),
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'County'),
+                                            React.createElement('input', {
+                                                type: 'text',
+                                                name: 'COUNTY',
+                                                value: formData.COUNTY,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500',
+                                                placeholder: 'Enter county'
+                                            })
+                                        )
+                                    )
+                                ),
+                                
+                                React.createElement('div', null,
+                                    React.createElement('h2', { className: 'text-xl font-bold text-gray-900 mb-4' }, 'Attorney-in-Fact Information'),
+                                    React.createElement('div', { className: 'space-y-4' },
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 
+                                                'Attorney-in-Fact Name ',
+                                                React.createElement('span', { className: 'text-red-500' }, '*')
+                                            ),
+                                            React.createElement('input', {
+                                                type: 'text',
+                                                name: 'AIF_NAME',
+                                                value: formData.AIF_NAME,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500',
+                                                placeholder: 'Usually the client\'s spouse'
+                                            })
+                                        ),
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 
+                                                'Attorney-in-Fact Relationship ',
+                                                React.createElement('span', { className: 'text-red-500' }, '*')
+                                            ),
+                                            React.createElement('input', {
+                                                type: 'text',
+                                                name: 'AIF_RELATIONSHIP',
+                                                value: formData.AIF_RELATIONSHIP,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500',
+                                                placeholder: 'e.g., wife, husband, daughter, son'
+                                            })
+                                        ),
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 
+                                                'Alternate Attorney-in-Fact Name ',
+                                                React.createElement('span', { className: 'text-red-500' }, '*')
+                                            ),
+                                            React.createElement('input', {
+                                                type: 'text',
+                                                name: 'ALTERNATE_AIF_NAME',
+                                                value: formData.ALTERNATE_AIF_NAME,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500',
+                                                placeholder: 'Enter alternate attorney-in-fact name'
+                                            })
+                                        ),
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 
+                                                'Alternate Attorney-in-Fact Relationship ',
+                                                React.createElement('span', { className: 'text-red-500' }, '*')
+                                            ),
+                                            React.createElement('input', {
+                                                type: 'text',
+                                                name: 'ALTERNATE_AIF_RELATIONSHIP',
+                                                value: formData.ALTERNATE_AIF_RELATIONSHIP,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500',
+                                                placeholder: 'e.g., son, daughter, sibling'
+                                            })
+                                        )
+                                    )
+                                ),
+                                
+                                React.createElement('div', null,
+                                    React.createElement('h2', { className: 'text-xl font-bold text-gray-900 mb-4' }, 'Execution Details'),
+                                    React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-4' },
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Execution Month'),
+                                            React.createElement('input', {
+                                                type: 'text',
+                                                name: 'EXEC_MONTH',
+                                                value: formData.EXEC_MONTH,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500',
+                                                placeholder: 'e.g., October'
+                                            })
+                                        ),
+                                        React.createElement('div', null,
+                                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Execution Year'),
+                                            React.createElement('input', {
+                                                type: 'text',
+                                                name: 'EXEC_YEAR',
+                                                value: formData.EXEC_YEAR,
+                                                onChange: handleInputChange,
+                                                className: 'w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500',
+                                                placeholder: 'e.g., 2025'
+                                            })
+                                        )
+                                    )
+                                ),
+                                
+                                error &&
+                                    React.createElement('div', { className: 'p-4 bg-red-50 border border-red-200 rounded-md' },
+                                        React.createElement('p', { className: 'text-red-800' }, '❌ ' + error)
+                                    ),
+                                
+                                success &&
+                                    React.createElement('div', { className: 'p-4 bg-green-50 border border-green-200 rounded-md' },
+                                        React.createElement('h3', { className: 'text-lg font-medium text-green-900 mb-2' }, '✓ Document Generated Successfully!'),
+                                        React.createElement('p', { className: 'text-sm text-green-700' }, 'The Power of Attorney document has been downloaded to your computer.')
+                                    ),
+                                
+                                React.createElement('div', { className: 'pt-4' },
+                                    React.createElement('button', {
+                                        onClick: handleGenerate,
+                                        disabled: isGenerating,
+                                        className: 'w-full bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed'
+                                    }, isGenerating ? 'Generating Document...' : 'Generate & Download Document')
+                                )
+                            )
+                        )
+                    )
+                )
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(React.createElement(POAGenerator));
     </script>
 </body>
 </html>
