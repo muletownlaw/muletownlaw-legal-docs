@@ -34,27 +34,20 @@ def download_template(url):
 
 def replace_placeholders(doc, data):
     """Replace placeholders in the document with actual data"""
-    
-    # Derive pronouns based on gender
-    pronouns = {
-        'he': 'he' if data['CLIENT_GENDER'] == 'Male' else 'she',
-        'his': 'his' if data['CLIENT_GENDER'] == 'Male' else 'her',
-        'him': 'him' if data['CLIENT_GENDER'] == 'Male' else 'her'
-    }
-    
+
     # Create replacement map
     replacements = {
         '{CLIENT_NAME}': data['CLIENT_NAME'].upper(),
-        '{COUNTY}': data['COUNTY'],
-        '{AIF_NAME}': data['AIF_NAME'].upper(),
-        '{AIF_RELATIONSHIP}': data.get('AIF_RELATIONSHIP', ''),
-        '{ALTERNATE_AIF_NAME}': data['ALTERNATE_AIF_NAME'].upper(),
-        '{ALTERNATE_AIF_RELATIONSHIP}': data.get('ALTERNATE_AIF_RELATIONSHIP', ''),
+        '{CLIENT_COUNTY}': data.get('COUNTY', data.get('CLIENT_COUNTY', '')),
+        '{PRIMARY_AGENT_NAME}': data.get('AIF_NAME', data.get('PRIMARY_AGENT_NAME', '')).upper(),
+        '{PRIMARY_AGENT_RELATION}': data.get('AIF_RELATIONSHIP', data.get('PRIMARY_AGENT_RELATION', '')),
+        '{PRIMARY_AGENT_COUNTY}': data.get('COUNTY', data.get('CLIENT_COUNTY', '')),
+        '{ALTERNATE_AGENT_NAME}': data.get('ALTERNATE_AIF_NAME', data.get('ALTERNATE_AGENT_NAME', '')).upper(),
+        '{ALTERNATE_AGENT_RELATION}': data.get('ALTERNATE_AIF_RELATIONSHIP', data.get('ALTERNATE_AGENT_RELATION', '')),
+        '{ALTERNATE_AGENT_COUNTY}': data.get('COUNTY', data.get('CLIENT_COUNTY', '')),
         '{EXEC_MONTH}': data['EXEC_MONTH'].upper(),
         '{EXEC_YEAR}': data['EXEC_YEAR'],
-        '{PRONOUN_SUBJECTIVE}': pronouns['he'],
-        '{PRONOUN_POSSESSIVE}': pronouns['his'],
-        '{PRONOUN_OBJECTIVE}': pronouns['him']
+        '{AttorneyName}': data.get('ATTORNEY_NAME', 'Thomas M. Hutto')
     }
     
     print(f"[POA] Replacing {len(replacements)} placeholders")

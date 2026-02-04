@@ -9,7 +9,7 @@
 
 TEMPLATE_URLS = {
     # Power of Attorney Template
-    'poa': 'https://drive.google.com/uc?export=download&id=1zXyAMYNU-qlkoEGuFnXE7yBRFlLpKef9',
+    'poa': 'https://docs.google.com/document/d/1t1vfNzq1Ri6q7LqwM2-vmRtQm9i2wOY0/export?format=docx',
     
     # Last Will and Testament Template
     'will': 'https://drive.google.com/uc?export=download&id=1HEP_Zb9IZ8qxmM8dRupzd3HeG7a8Ecka',
