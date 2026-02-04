@@ -7,9 +7,27 @@ import sys
 import os
 import traceback
 from datetime import datetime
+import re
 
 # Add the api directory to path so we can import template_config
 sys.path.insert(0, os.path.dirname(__file__))
+
+def format_name_for_filename(full_name):
+    """Format name as 'Lastname Firstname' removing middle initials"""
+    name_parts = full_name.strip().split()
+    if len(name_parts) < 2:
+        return full_name
+
+    # Remove middle initials (single letter followed by optional period)
+    filtered_parts = [part for part in name_parts if not re.match(r'^[A-Z]\.?$', part)]
+
+    if len(filtered_parts) >= 2:
+        # Last name is last element, first name is everything before it
+        lastname = filtered_parts[-1]
+        firstname = ' '.join(filtered_parts[:-1])
+        return f"{lastname} {firstname}"
+    else:
+        return full_name
 
 try:
     from template_config import TEMPLATE_URLS
@@ -141,13 +159,7 @@ class handler(BaseHTTPRequestHandler):
 
             # Format filename as: YYYY-MM-DD POA lastname firstname.docx
             today = datetime.now().strftime('%Y-%m-%d')
-            client_name = data["CLIENT_NAME"]
-            # Split name into parts and reverse (lastname firstname)
-            name_parts = client_name.strip().split()
-            if len(name_parts) >= 2:
-                formatted_name = f"{name_parts[-1]} {' '.join(name_parts[:-1])}"
-            else:
-                formatted_name = client_name
+            formatted_name = format_name_for_filename(data["CLIENT_NAME"])
             filename = f"{today} POA {formatted_name}.docx"
 
             # Send response

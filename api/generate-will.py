@@ -9,6 +9,23 @@ import os
 from datetime import datetime
 import re
 
+def format_name_for_filename(full_name):
+    """Format name as 'Lastname Firstname' removing middle initials"""
+    name_parts = full_name.strip().split()
+    if len(name_parts) < 2:
+        return full_name
+
+    # Remove middle initials (single letter followed by optional period)
+    filtered_parts = [part for part in name_parts if not re.match(r'^[A-Z]\.?$', part)]
+
+    if len(filtered_parts) >= 2:
+        # Last name is last element, first name is everything before it
+        lastname = filtered_parts[-1]
+        firstname = ' '.join(filtered_parts[:-1])
+        return f"{lastname} {firstname}"
+    else:
+        return full_name
+
 def int_to_roman(num):
     """Convert integer to Roman numeral"""
     val = [
@@ -576,13 +593,7 @@ class handler(BaseHTTPRequestHandler):
             
             # Format filename as: YYYY-MM-DD LWT lastname firstname.docx
             today = datetime.now().strftime('%Y-%m-%d')
-            client_name = data.get("CLIENT_NAME", "Document")
-            # Split name into parts and reverse (lastname firstname)
-            name_parts = client_name.strip().split()
-            if len(name_parts) >= 2:
-                formatted_name = f"{name_parts[-1]} {' '.join(name_parts[:-1])}"
-            else:
-                formatted_name = client_name
+            formatted_name = format_name_for_filename(data.get("CLIENT_NAME", "Document"))
             filename = f"{today} LWT {formatted_name}.docx"
 
             # Send response
