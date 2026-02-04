@@ -13,33 +13,37 @@ This guide covers:
 
 ### Option A: Subdomain (Recommended)
 
-Use a subdomain like `docs.muletown.law` or `internal.muletown.law`
+Using: `scrivening.muletown.law` (archaic term for legal document drafting - secure through obscurity!)
 
 #### Step 1: Add DNS Record in Squarespace
 
-1. **Log into Squarespace**
+1. **Log into Squarespace** at https://account.squarespace.com/
 2. Go to **Settings** → **Domains** → Click on `muletown.law`
-3. Click **DNS Settings**
-4. Click **Add Record**
-5. Create a **CNAME record**:
+3. Click **DNS Settings** (or **Advanced DNS**)
+4. Scroll to **Custom Records** section
+5. Click **Add Record** or **Add**
+6. Create a **CNAME record**:
    ```
    Type: CNAME
-   Host: docs (or whatever subdomain you want)
+   Host: scrivening
    Data: cname.vercel-dns.com
-   TTL: 3600 (1 hour)
+   TTL: 3600 (or leave default - usually 1 hour)
    ```
-6. Click **Save**
+7. Click **Save** or **Add Record**
+
+**Important:** Don't include `.muletown.law` in the Host field - just `scrivening`
 
 #### Step 2: Add Domain in Vercel
 
 1. **Log into Vercel** (https://vercel.com/dashboard)
-2. Go to your **muletownlaw-legal-docs** project
-3. Click **Settings** → **Domains**
-4. Click **Add Domain**
-5. Enter: `docs.muletown.law` (or your chosen subdomain)
+2. Click on your **muletownlaw-legal-docs** project
+3. Click **Settings** tab → **Domains** section
+4. Click **Add Domain** button
+5. Enter exactly: `scrivening.muletown.law`
 6. Click **Add**
-7. Vercel will verify the DNS record (may take a few minutes)
+7. Vercel will verify the DNS record (may take 1-10 minutes)
 8. Once verified, you'll see ✅ next to the domain
+9. SSL certificate will auto-provision (another 5-10 minutes)
 
 #### Step 3: Wait for SSL Certificate
 
