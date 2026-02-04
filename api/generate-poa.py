@@ -5,10 +5,20 @@ from docx import Document
 import urllib.request
 import sys
 import os
+import traceback
 
 # Add the api directory to path so we can import template_config
 sys.path.insert(0, os.path.dirname(__file__))
-from template_config import TEMPLATE_URLS
+
+try:
+    from template_config import TEMPLATE_URLS
+    print("[POA] Successfully imported TEMPLATE_URLS")
+    print(f"[POA] POA template URL: {TEMPLATE_URLS.get('poa', 'NOT FOUND')}")
+except ImportError as e:
+    print(f"[POA] CRITICAL: Failed to import template_config: {e}")
+    print(f"[POA] Current directory: {os.getcwd()}")
+    print(f"[POA] Files in current dir: {os.listdir('.')}")
+    TEMPLATE_URLS = {'poa': 'ERROR_NO_CONFIG'}
 
 def download_template(url):
     """Download template from Google Drive"""
@@ -94,7 +104,15 @@ def generate_poa_document(data):
     """Generate POA document from Google Drive template"""
     
     # Get template URL from config
-    template_url = TEMPLATE_URLS['poa']
+    template_url = TEMPLATE_URLS.get('poa', '')
+    
+    if not template_url or template_url == 'ERROR_NO_CONFIG':
+        raise Exception("Template configuration not found. Check that template_config.py is in api/ folder")
+    
+    # Remove trailing slash if present
+    template_url = template_url.rstrip('/')
+    
+    print(f"[POA] Using template URL: {template_url}")
     
     # Download template from Google Drive
     template_buffer = download_template(template_url)
