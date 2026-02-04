@@ -80,11 +80,21 @@
                     const blob = await response.blob();
                     console.log('Received blob, size:', blob.size);
 
+                    // Extract filename from Content-Disposition header
+                    const contentDisposition = response.headers.get('Content-Disposition');
+                    let filename = `POA_${formData.CLIENT_NAME.replace(/\s+/g, '_')}.docx`; // fallback
+                    if (contentDisposition) {
+                        const matches = /filename="([^"]+)"/.exec(contentDisposition) || /filename=([^;]+)/.exec(contentDisposition);
+                        if (matches && matches[1]) {
+                            filename = matches[1];
+                        }
+                    }
+
                     // Create download link
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `POA_${formData.CLIENT_NAME.replace(/\s+/g, '_')}_${Date.now()}.docx`;
+                    a.download = filename;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);

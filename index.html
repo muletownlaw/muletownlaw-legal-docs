@@ -205,10 +205,21 @@
 
                 if (response.ok) {
                     const blob = await response.blob();
+
+                    // Extract filename from Content-Disposition header
+                    const contentDisposition = response.headers.get('Content-Disposition');
+                    let filename = `${docType.toUpperCase()}_${clientName.replace(/ /g, '_')}.docx`; // fallback
+                    if (contentDisposition) {
+                        const matches = /filename="([^"]+)"/.exec(contentDisposition) || /filename=([^;]+)/.exec(contentDisposition);
+                        if (matches && matches[1]) {
+                            filename = matches[1];
+                        }
+                    }
+
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `${docType.toUpperCase()}_${clientName.replace(/ /g, '_')}.docx`;
+                    a.download = filename;
                     document.body.appendChild(a);
                     a.click();
                     window.URL.revokeObjectURL(url);
