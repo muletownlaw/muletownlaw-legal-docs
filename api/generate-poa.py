@@ -6,6 +6,7 @@ import urllib.request
 import sys
 import os
 import traceback
+from datetime import datetime
 
 # Add the api directory to path so we can import template_config
 sys.path.insert(0, os.path.dirname(__file__))
@@ -137,11 +138,22 @@ class handler(BaseHTTPRequestHandler):
             buffer.seek(0)
             
             print(f"[POA] Document generated: {len(buffer.getvalue())} bytes")
-            
+
+            # Format filename as: YYYY-MM-DD POA lastname firstname.docx
+            today = datetime.now().strftime('%Y-%m-%d')
+            client_name = data["CLIENT_NAME"]
+            # Split name into parts and reverse (lastname firstname)
+            name_parts = client_name.strip().split()
+            if len(name_parts) >= 2:
+                formatted_name = f"{name_parts[-1]} {' '.join(name_parts[:-1])}"
+            else:
+                formatted_name = client_name
+            filename = f"{today} POA {formatted_name}.docx"
+
             # Send response
             self.send_response(200)
             self.send_header('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-            self.send_header('Content-Disposition', f'attachment; filename="POA_{data["CLIENT_NAME"].replace(" ", "_")}.docx"')
+            self.send_header('Content-Disposition', f'attachment; filename="{filename}"')
             self.end_headers()
             self.wfile.write(buffer.getvalue())
             

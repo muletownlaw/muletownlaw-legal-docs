@@ -2,7 +2,33 @@ from http.server import BaseHTTPRequestHandler
 import json
 from io import BytesIO
 from docx import Document
+import urllib.request
+import sys
 import os
+from datetime import datetime
+
+# Add the api directory to path so we can import template_config
+sys.path.insert(0, os.path.dirname(__file__))
+
+try:
+    from template_config import TEMPLATE_URLS
+    print("[HCPOA] Successfully imported TEMPLATE_URLS")
+    print(f"[HCPOA] HCPOA template URL: {TEMPLATE_URLS.get('hcpoa', 'NOT FOUND')}")
+except ImportError as e:
+    print(f"[HCPOA] CRITICAL: Failed to import template_config: {e}")
+    TEMPLATE_URLS = {'hcpoa': 'ERROR_NO_CONFIG'}
+
+def download_template(url):
+    """Download template from Google Drive"""
+    try:
+        print(f"[HCPOA] Downloading template from: {url}")
+        with urllib.request.urlopen(url) as response:
+            template_bytes = response.read()
+            print(f"[HCPOA] Template downloaded: {len(template_bytes)} bytes")
+            return BytesIO(template_bytes)
+    except Exception as e:
+        print(f"[HCPOA] Template download failed: {e}")
+        raise Exception(f"Failed to download template: {str(e)}")
 
 def replace_in_document(doc, replacements):
     """Replace all placeholders in the document"""
@@ -24,9 +50,24 @@ def replace_in_document(doc, replacements):
                                     run.text = run.text.replace(placeholder, value)
 
 def generate_hcpoa_document(data):
-    """Generate HCPOA from standardized template"""
-    template_path = os.path.join(os.path.dirname(__file__), 'HCPOA.docx')
-    doc = Document(template_path)
+    """Generate HCPOA from Google Drive template"""
+
+    # Get template URL from config
+    template_url = TEMPLATE_URLS.get('hcpoa', '')
+
+    if not template_url or template_url == 'ERROR_NO_CONFIG':
+        raise Exception("Template configuration not found. Check that template_config.py is in api/ folder")
+
+    # Remove trailing slash if present
+    template_url = template_url.rstrip('/')
+
+    print(f"[HCPOA] Using template URL: {template_url}")
+
+    # Download template from Google Drive
+    template_buffer = download_template(template_url)
+
+    # Open the template
+    doc = Document(template_buffer)
     
     replacements = {
         '{CLIENT_NAME}': data['CLIENT_NAME'].upper(),
@@ -57,10 +98,21 @@ class handler(BaseHTTPRequestHandler):
             buffer = BytesIO()
             doc.save(buffer)
             buffer.seek(0)
-            
+
+            # Format filename as: YYYY-MM-DD HCPOA lastname firstname.docx
+            today = datetime.now().strftime('%Y-%m-%d')
+            client_name = data["CLIENT_NAME"]
+            # Split name into parts and reverse (lastname firstname)
+            name_parts = client_name.strip().split()
+            if len(name_parts) >= 2:
+                formatted_name = f"{name_parts[-1]} {' '.join(name_parts[:-1])}"
+            else:
+                formatted_name = client_name
+            filename = f"{today} HCPOA {formatted_name}.docx"
+
             self.send_response(200)
             self.send_header('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-            self.send_header('Content-Disposition', f'attachment; filename="HCPOA_{data["CLIENT_NAME"].replace(" ", "_")}.docx"')
+            self.send_header('Content-Disposition', f'attachment; filename="{filename}"')
             self.end_headers()
             self.wfile.write(buffer.getvalue())
             

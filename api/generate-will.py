@@ -574,13 +574,24 @@ class handler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps(result).encode())
                 return
             
+            # Format filename as: YYYY-MM-DD LWT lastname firstname.docx
+            today = datetime.now().strftime('%Y-%m-%d')
+            client_name = data.get("CLIENT_NAME", "Document")
+            # Split name into parts and reverse (lastname firstname)
+            name_parts = client_name.strip().split()
+            if len(name_parts) >= 2:
+                formatted_name = f"{name_parts[-1]} {' '.join(name_parts[:-1])}"
+            else:
+                formatted_name = client_name
+            filename = f"{today} LWT {formatted_name}.docx"
+
             # Send response
             self.send_response(200)
             self.send_header('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-            self.send_header('Content-Disposition', f'attachment; filename="Will_{data.get("CLIENT_NAME", "Document").replace(" ", "_")}.docx"')
+            self.send_header('Content-Disposition', f'attachment; filename="{filename}"')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
-            
+
             self.wfile.write(result.getvalue())
             
         except Exception as e:

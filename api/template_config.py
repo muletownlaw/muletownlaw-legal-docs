@@ -15,10 +15,10 @@ TEMPLATE_URLS = {
     'will': 'https://drive.google.com/uc?export=download&id=1HEP_Zb9IZ8qxmM8dRupzd3HeG7a8Ecka',
     
     # Healthcare Power of Attorney Template
-    'hcpoa': 'https://drive.google.com/uc?export=download&id=REPLACE_WITH_YOUR_HCPOA_FILE_ID',
-    
+    'hcpoa': 'https://docs.google.com/document/d/1ZmL3kZ_ZTj9_r71XQl0cz1TZa-Xyx8hF/export?format=docx',
+
     # Advance Care Plan Template
-    'acp': 'https://drive.google.com/uc?export=download&id=REPLACE_WITH_YOUR_ACP_FILE_ID',
+    'acp': 'https://docs.google.com/document/d/1JP74kmteBzISHraxW1GanEUJ1q7B86nv/export?format=docx',
     
     # Additional clause templates
     'handwritten_list': 'https://drive.google.com/uc?export=download&id=REPLACE_WITH_FILE_ID',
