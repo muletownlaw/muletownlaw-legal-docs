@@ -1,20 +1,16 @@
-// IP Restriction Middleware for Muletown Law Document System
-// This restricts access to only authorized office IP addresses
+// IP Restriction Edge Function for Muletown Law Document System
+// Works with Vercel Edge Runtime (no Next.js required)
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths
-     * This runs on EVERY request to check IP
-     */
-    '/(.*)',
-  ],
+  runtime: 'edge',
 }
 
-export function middleware(request) {
+export default async function middleware(request) {
+  const url = new URL(request.url);
+
   // Skip middleware for debug page
-  if (request.nextUrl.pathname === '/debug-ip.html') {
-    return;
+  if (url.pathname === '/debug-ip.html') {
+    return fetch(request);
   }
 
   // Muletown Law Office IP Address
@@ -34,11 +30,10 @@ export function middleware(request) {
   const clientIP = cfConnectingIP
     || realIP
     || (forwardedFor ? forwardedFor.split(',')[0].trim() : null)
-    || request.ip
     || 'unknown';
 
   // Log access attempts (visible in Vercel logs)
-  console.log(`[IP Check] Access from: ${clientIP} | Path: ${request.nextUrl.pathname}`);
+  console.log(`[IP Check] Access from: ${clientIP} | Path: ${url.pathname}`);
   console.log(`[IP Check] Headers - x-forwarded-for: ${forwardedFor}, x-real-ip: ${realIP}, cf-connecting-ip: ${cfConnectingIP}`);
 
   // Check if IP is in allowed list
@@ -51,5 +46,5 @@ export function middleware(request) {
 
   // IP is allowed, continue to requested page
   console.log(`[IP Check] ALLOWED - ${clientIP}`);
-  return;
+  return fetch(request);
 }
