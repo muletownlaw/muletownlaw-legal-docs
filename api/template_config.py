@@ -1,6 +1,6 @@
 # Template URLs Configuration
 # Update these URLs when you upload new templates to Google Drive
-# 
+#
 # How to get the FILE_ID:
 # 1. Right-click file in Google Drive → Share → Copy link
 # 2. Link looks like: https://drive.google.com/file/d/FILE_ID_HERE/view?usp=sharing
@@ -8,28 +8,17 @@
 # 4. Use format: https://drive.google.com/uc?export=download&id=FILE_ID_HERE
 
 TEMPLATE_URLS = {
-    # Power of Attorney Template
+    # Power of Attorney Template (Google Doc — use Docs export URL)
     'poa': 'https://docs.google.com/document/d/1t1vfNzq1Ri6q7LqwM2-vmRtQm9i2wOY0/export?format=docx',
-    
-    # Last Will and Testament Template
+
+    # Last Will and Testament Template (uploaded .docx — use Drive download URL)
     'will': 'https://drive.google.com/uc?export=download&id=1HEP_Zb9IZ8qxmM8dRupzd3HeG7a8Ecka',
-    
-    # Healthcare Power of Attorney Template
+
+    # Healthcare Power of Attorney Template (Google Doc — use Docs export URL)
     'hcpoa': 'https://docs.google.com/document/d/1ZmL3kZ_ZTj9_r71XQl0cz1TZa-Xyx8hF/export?format=docx',
 
-    # Advance Care Plan Template
+    # Advance Care Plan Template (Google Doc — use Docs export URL)
     'acp': 'https://docs.google.com/document/d/1JP74kmteBzISHraxW1GanEUJ1q7B86nv/export?format=docx',
-    
-    # Additional clause templates
-    'handwritten_list': 'https://drive.google.com/uc?export=download&id=REPLACE_WITH_FILE_ID',
-    'love_affection': 'https://drive.google.com/uc?export=download&id=REPLACE_WITH_FILE_ID',
-    'no_contest': 'https://drive.google.com/uc?export=download&id=REPLACE_WITH_FILE_ID',
-    'real_estate_debt': 'https://drive.google.com/uc?export=download&id=REPLACE_WITH_FILE_ID',
-    'sell_real_estate': 'https://drive.google.com/uc?export=download&id=REPLACE_WITH_FILE_ID',
-    'guardian': 'https://drive.google.com/uc?export=download&id=REPLACE_WITH_FILE_ID',
-    'trust_basic': 'https://drive.google.com/uc?export=download&id=REPLACE_WITH_FILE_ID',
-    'trust_sprinkling': 'https://drive.google.com/uc?export=download&id=REPLACE_WITH_FILE_ID',
-    'special_needs': 'https://drive.google.com/uc?export=download&id=REPLACE_WITH_FILE_ID'
 }
 
 # Placeholder format used in templates

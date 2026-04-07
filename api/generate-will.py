@@ -6,8 +6,62 @@ from docx.shared import Inches
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 import os
+import sys
 from datetime import datetime
 import re
+
+# Add the api directory to path so we can import template_config
+sys.path.insert(0, os.path.dirname(__file__))
+
+try:
+    from template_config import TEMPLATE_URLS
+    print("[WILL] Successfully imported TEMPLATE_URLS")
+    print(f"[WILL] Will template URL: {TEMPLATE_URLS.get('will', 'NOT FOUND')}")
+except ImportError as e:
+    print(f"[WILL] CRITICAL: Failed to import template_config: {e}")
+    TEMPLATE_URLS = {'will': 'ERROR_NO_CONFIG'}
+
+# Module-level cache to avoid re-downloading templates on warm invocations
+_template_cache = {}
+
+def download_template(url):
+    """Download template from Google Drive, with in-memory caching.
+
+    Uses requests for reliable redirect and cookie handling. Google Drive
+    sometimes returns an HTML confirmation page for larger files; this
+    function detects that and retries with the embedded confirm token.
+    """
+    if url in _template_cache:
+        print(f"[WILL] Using cached template for: {url}")
+        return BytesIO(_template_cache[url])
+    try:
+        import requests as req_lib
+        print(f"[WILL] Downloading template from: {url}")
+        session = req_lib.Session()
+        session.headers['User-Agent'] = 'Mozilla/5.0'
+        response = session.get(url, allow_redirects=True, timeout=30)
+        response.raise_for_status()
+        content = response.content
+        if content[:4] != b'PK\x03\x04':
+            confirm = re.search(rb'confirm=([0-9A-Za-z_\-]+)', content)
+            file_id = re.search(r'[?&]id=([^&]+)', url)
+            if confirm and file_id:
+                retry_url = (
+                    f'https://drive.google.com/uc?export=download'
+                    f'&id={file_id.group(1)}'
+                    f'&confirm={confirm.group(1).decode()}'
+                )
+                response = session.get(retry_url, allow_redirects=True, timeout=30)
+                content = response.content
+        if content[:4] != b'PK\x03\x04':
+            raise Exception("Downloaded file is not a valid .docx (failed ZIP header check). "
+                            "Ensure the file is shared as 'Anyone with the link can view'.")
+        print(f"[WILL] Template downloaded: {len(content)} bytes")
+        _template_cache[url] = content
+        return BytesIO(content)
+    except Exception as e:
+        print(f"[WILL] Template download failed: {e}")
+        raise Exception(f"Failed to download template: {str(e)}")
 
 def format_name_for_filename(full_name):
     """Format name as 'Lastname Firstname' removing middle initials"""
@@ -455,12 +509,15 @@ def format_children_list(children):
 
 def generate_will_document(data):
     """Generate Last Will and Testament using the template"""
-    
-    # Load the actual template
-    template_path = os.path.join(os.path.dirname(__file__), 'templates', 'will_template.docx')
-    
+
+    # Download template from Google Drive
+    template_url = TEMPLATE_URLS.get('will', '')
+    if not template_url or template_url == 'ERROR_NO_CONFIG':
+        return {'error': 'Will template URL not configured'}
+
     try:
-        doc = Document(template_path)
+        template_buffer = download_template(template_url)
+        doc = Document(template_buffer)
     except Exception as e:
         return {'error': f'Could not load template: {str(e)}'}
     
