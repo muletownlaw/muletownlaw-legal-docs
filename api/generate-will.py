@@ -625,7 +625,8 @@ def generate_will_document(data):
     replace_in_document(doc, replacements)
     
     # Step 2b: Insert Specific Bequests paragraphs before "A. To My Spouse".
-    # Generates blank lettered placeholders for the attorney to fill in Word.
+    # Placeholders use {braces} format for Curly (https://curly.io), the Word
+    # add-in used by this firm to fill in one-off variables in generated documents.
     # Looks for ##INSERT_SPECIFIC_BEQUESTS## marker first; falls back to finding
     # the "A. To My Spouse" paragraph directly (for Drive templates without the marker).
     specific_bequests_paragraphs = []
@@ -635,7 +636,7 @@ def generate_will_document(data):
         letters = 'abcdefghijklmnopqrstuvwxyz'
         specific_bequests_paragraphs.append('I make the following specific bequests:')
         for i in range(count):
-            specific_bequests_paragraphs.append(f'({letters[i]})')
+            specific_bequests_paragraphs.append(f'({letters[i]}) {{Specific_bequest_{letters[i]}}}')
         specific_bequests_paragraphs.append(
             'If any of the beneficiaries named above shall predecease me or does not '
             'survive me by thirty (30) days, the bequest to them shall lapse and become '
