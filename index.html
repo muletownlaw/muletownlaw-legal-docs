@@ -197,7 +197,15 @@
                         DISINHERITED_RELATION: data.DISINHERITED_RELATION,
                         INCLUDE_HANDWRITTEN_LIST: data.INCLUDE_HANDWRITTEN_LIST,
                         INCLUDE_REAL_ESTATE_DEBT: data.INCLUDE_REAL_ESTATE_DEBT,
-                        INCLUDE_NO_CONTEST: data.INCLUDE_NO_CONTEST
+                        INCLUDE_NO_CONTEST: data.INCLUDE_NO_CONTEST,
+                        INCLUDE_SELL_REAL_ESTATE: data.INCLUDE_SELL_REAL_ESTATE,
+                        INCLUDE_SPECIFIC_BEQUESTS: data.INCLUDE_SPECIFIC_BEQUESTS,
+                        GUARDIAN_NAME_1: data.GUARDIAN_NAME_1 || '',
+                        GUARDIAN_RELATION_1: data.GUARDIAN_RELATION_1 || '',
+                        GUARDIAN_NAME_2: data.GUARDIAN_NAME_2 || '',
+                        GUARDIAN_RELATION_2: data.GUARDIAN_RELATION_2 || '',
+                        GUARDIAN_NAME_3: data.GUARDIAN_NAME_3 || '',
+                        GUARDIAN_RELATION_3: data.GUARDIAN_RELATION_3 || ''
                     };
                 } else if (docType === 'poa') {
                     requestData = {

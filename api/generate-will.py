@@ -335,15 +335,6 @@ def insert_article_iii_clauses(doc, data):
         if clause_text:
             clauses_to_insert.append(clause_text)
 
-    # 4. Specific Bequests - FOURTH (inserted as sub-section of Article III)
-    if data.get('INCLUDE_SPECIFIC_BEQUESTS'):
-        clause_text = load_clause_text('LWT_-_Clause_-_Specific_Bequests.txt')
-        if clause_text:
-            spouse_type = 'husband' if data.get('SPOUSE_GENDER', 'Female') == 'Male' else 'wife'
-            clause_text = clause_text.replace('{SPOUSE_TYPE}', spouse_type)
-            clause_text = clause_text.replace('{SPOUSE_NAME}', data.get('SN_BENEFICIARY', data.get('SPOUSE_NAME', '')))
-            clauses_to_insert.append(clause_text)
-
     # Note: No Contest is now inserted as a separate article (Article IV)
     # See insert_no_contest_article() function
 
@@ -633,22 +624,42 @@ def generate_will_document(data):
     # Step 2: Replace all variables
     replace_in_document(doc, replacements)
     
+    # Step 2b: Handle ##INSERT_SPECIFIC_BEQUESTS## marker — insert Specific Bequests
+    # article before A. To My Spouse if checked, otherwise just remove the marker.
+    specific_bequests_text = None
+    if data.get('INCLUDE_SPECIFIC_BEQUESTS'):
+        specific_bequests_text = load_clause_text('LWT_-_Clause_-_Specific_Bequests.txt')
+        if specific_bequests_text:
+            spouse_type = 'husband' if data.get('SPOUSE_GENDER', 'Female') == 'Male' else 'wife'
+            specific_bequests_text = specific_bequests_text.replace('{SPOUSE_TYPE}', spouse_type)
+            specific_bequests_text = specific_bequests_text.replace('{SPOUSE_NAME}', data.get('SN_BENEFICIARY', data.get('SPOUSE_NAME', '')))
+    for para in doc.paragraphs:
+        if '##INSERT_SPECIFIC_BEQUESTS##' in para.text:
+            marker_elem = para._element
+            if specific_bequests_text:
+                new_para = doc.add_paragraph(specific_bequests_text)
+                _format_body_para(new_para)
+                new_para._element.getparent().remove(new_para._element)
+                marker_elem.addprevious(new_para._element)
+            marker_elem.getparent().remove(marker_elem)
+            break
+
     # Step 3: Insert Article III clauses
     insert_article_iii_clauses(doc, data)
 
-    # Step 3b: Insert Sell Real Estate clause into Executor Powers article
-    if data.get('INCLUDE_SELL_REAL_ESTATE'):
-        clause_text = load_clause_text('LWT_-_Clause_-_Sell_Real_Estate.txt')
-        if clause_text:
-            marker = '##INSERT_EXECUTOR_EXTRA##'
-            for i, para in enumerate(doc.paragraphs):
-                if marker in para.text:
-                    para._element.getparent().remove(para._element)
-                    new_para = doc.add_paragraph(clause_text)
-                    _format_body_para(new_para)
-                    new_para._element.getparent().remove(new_para._element)
-                    doc.paragraphs[i]._element.addprevious(new_para._element)
-                    break
+    # Step 3b: Handle ##INSERT_EXECUTOR_EXTRA## marker — replace with Sell Real
+    # Estate clause if checked, otherwise just remove the marker.
+    sell_clause_text = load_clause_text('LWT_-_Clause_-_Sell_Real_Estate.txt') if data.get('INCLUDE_SELL_REAL_ESTATE') else None
+    for para in doc.paragraphs:
+        if '##INSERT_EXECUTOR_EXTRA##' in para.text:
+            marker_elem = para._element
+            if sell_clause_text:
+                new_para = doc.add_paragraph(sell_clause_text)
+                _format_body_para(new_para)
+                new_para._element.getparent().remove(new_para._element)
+                marker_elem.addprevious(new_para._element)
+            marker_elem.getparent().remove(marker_elem)
+            break
 
     # Step 4: Insert no-contest as Article IV if requested
     no_contest_inserted = insert_no_contest_article(doc, data)
