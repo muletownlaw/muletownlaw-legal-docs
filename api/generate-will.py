@@ -388,72 +388,109 @@ def insert_no_contest_article(doc, data):
 
     return insert_index  # Return index for renumbering
 
-def insert_trust_for_minors(doc, data, children):
-    """Insert trust for minors at ##INSERT_NEW_ARTICLES## marker if needed"""
-    # Check if any child is under 25
-    has_minor = False
-    for child in children:
-        age = calculate_age(child.get('dob', ''))
-        if age < 25:
-            has_minor = True
-            break
+def insert_guardian_article(doc, data, minor_children, insert_index):
+    """Insert guardian appointment article for children under 18.
 
-    if not has_minor:
-        return False
-    
-    # Find the insertion point
-    insert_index = None
-    for i, para in enumerate(doc.paragraphs):
-        if '##INSERT_NEW_ARTICLES##' in para.text:
-            insert_index = i
-            # Remove the marker
-            p = para._element
-            p.getparent().remove(p)
-            break
+    minor_children is a pre-filtered list of children whose age < 18.
+    Returns updated insert_index.
+    """
+    if not minor_children:
+        return insert_index
 
-    if insert_index is None:
-        return False
-    
-    # Load trust template
-    trust_text = load_clause_text('LWT_-_Trust_for_Minor_Children.txt')
-    if not trust_text:
-        return
-    
-    # Replace trustee variable
-    trust_text = trust_text.replace('{TRUSTEE_NAME}', data.get('TRUSTEE_NAME', ''))
-    
-    # Add Article header
-    article_para = doc.add_paragraph('Article VI - Trust for Minor Children')
+    num_minors = len(minor_children)
+    child_word = 'child' if num_minors == 1 else 'children'
+    is_are = 'is' if num_minors == 1 else 'are'
+
+    # Build names list for minor children only
+    names_list = [c.get('name', '') for c in minor_children if c.get('name')]
+    if len(names_list) == 1:
+        names = names_list[0]
+    elif len(names_list) == 2:
+        names = f"{names_list[0]} and {names_list[1]}"
+    else:
+        names = ', '.join(names_list[:-1]) + f', and {names_list[-1]}'
+
+    spouse_type = 'husband' if data.get('SPOUSE_GENDER', 'Female') == 'Male' else 'wife'
+    g1_name = data.get('GUARDIAN_NAME_1', '')
+    g1_rel  = data.get('GUARDIAN_RELATION_1', '')
+    g2_name = data.get('GUARDIAN_NAME_2', '')
+    g2_rel  = data.get('GUARDIAN_RELATION_2', '')
+    g3_name = data.get('GUARDIAN_NAME_3', '')
+    g3_rel  = data.get('GUARDIAN_RELATION_3', '')
+
+    guardian_text = (
+        f"In the event my {spouse_type} predeceases me and my {child_word} {names} "
+        f"{is_are} less than Eighteen (18) years of age, I direct that my {g1_rel}, "
+        f"{g1_name}, serve as Guardian until such beneficiary reaches the age of majority. "
+        f"Should {g1_name} be unwilling or unable to serve, I appoint my {g2_rel}, "
+        f"{g2_name}, as Guardian until such beneficiary reaches the age of majority. "
+        f"Should {g2_name} be unwilling or unable to serve, I appoint my {g3_rel}, "
+        f"{g3_name}, as Guardian until such beneficiary reaches the age of majority."
+    )
+
+    article_para = doc.add_paragraph('Article IV - Appointment of Guardian')
     _format_heading_para(article_para)
-
     article_para._element.getparent().remove(article_para._element)
     doc.paragraphs[insert_index]._element.addprevious(article_para._element)
     insert_index += 1
 
-    # Add trust text paragraphs
+    body_para = doc.add_paragraph(guardian_text)
+    _format_body_para(body_para)
+    body_para._element.getparent().remove(body_para._element)
+    doc.paragraphs[insert_index]._element.addprevious(body_para._element)
+    insert_index += 1
+
+    return insert_index
+
+
+def insert_trust_for_minors(doc, data, children, insert_index):
+    """Insert trust for minors article at insert_index if any child is under 25.
+
+    The ##INSERT_NEW_ARTICLES## marker has already been removed by the caller.
+    Returns updated insert_index (or original index if no trust needed).
+    """
+    has_minor = any(calculate_age(c.get('dob', '')) < 25 for c in children)
+    if not has_minor:
+        return insert_index
+
+    trust_text = load_clause_text('LWT_-_Trust_for_Minor_Children.txt')
+    if not trust_text:
+        return insert_index
+
+    trust_text = trust_text.replace('{TRUSTEE_NAME}', data.get('TRUSTEE_NAME', ''))
+
+    article_para = doc.add_paragraph('Article VI - Trust for Minor Children')
+    _format_heading_para(article_para)
+    article_para._element.getparent().remove(article_para._element)
+    doc.paragraphs[insert_index]._element.addprevious(article_para._element)
+    insert_index += 1
+
     for paragraph_text in trust_text.split('\n\n'):
         if paragraph_text.strip():
             new_para = doc.add_paragraph(paragraph_text.strip())
             _format_body_para(new_para)
-
             new_para._element.getparent().remove(new_para._element)
             doc.paragraphs[insert_index]._element.addprevious(new_para._element)
             insert_index += 1
 
-    return insert_index  # Return index for renumbering
+    return insert_index
 
 def calculate_age(dob_string):
-    """Calculate age from birthdate string"""
+    """Calculate age from birthdate string.
+
+    Accepts both YYYY-MM-DD (native date input value) and Month DD, YYYY
+    (the formatted string the form used to send before the fix).
+    """
     if not dob_string:
         return 0
-    try:
-        dob = datetime.strptime(dob_string, '%Y-%m-%d')
-        today = datetime.now()
-        age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
-        return age
-    except (ValueError, TypeError) as e:
-        # If date parsing fails, return 0 (treat as no DOB)
-        return 0
+    for fmt in ('%Y-%m-%d', '%B %d, %Y', '%b %d, %Y'):
+        try:
+            dob = datetime.strptime(dob_string.strip(), fmt)
+            today = datetime.now()
+            return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+        except (ValueError, TypeError):
+            continue
+    return 0
 
 def format_children_list(children):
     """Format children for the will with proper readability"""
@@ -592,12 +629,20 @@ def generate_will_document(data):
     # Step 4: Insert no-contest as Article IV if requested
     no_contest_inserted = insert_no_contest_article(doc, data)
 
-    # Step 5: Insert trust for minors if needed
-    trust_inserted = False
+    # Step 5: Insert optional articles (guardian + trust) at ##INSERT_NEW_ARTICLES## marker.
+    # Find and remove the marker once, then insert articles in document order:
+    # guardian (children < 18) first, trust (children < 25) second.
     if children:
-        trust_result = insert_trust_for_minors(doc, data, children)
-        if trust_result:
-            trust_inserted = True
+        articles_index = None
+        for i, para in enumerate(doc.paragraphs):
+            if '##INSERT_NEW_ARTICLES##' in para.text:
+                articles_index = i
+                para._element.getparent().remove(para._element)
+                break
+        if articles_index is not None:
+            minor_children = [c for c in children if calculate_age(c.get('dob', '')) < 18]
+            articles_index = insert_guardian_article(doc, data, minor_children, articles_index)
+            articles_index = insert_trust_for_minors(doc, data, children, articles_index)
 
     # Step 6: Renumber articles from IV onwards based on what was inserted
     # Articles I-III are fixed, everything from IV onwards needs sequential numbering
