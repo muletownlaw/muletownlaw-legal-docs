@@ -624,40 +624,54 @@ def generate_will_document(data):
     # Step 2: Replace all variables
     replace_in_document(doc, replacements)
     
-    # Step 2b: Insert Specific Bequests paragraph before "A. To My Spouse".
+    # Step 2b: Insert Specific Bequests paragraphs before "A. To My Spouse".
+    # Builds clause text dynamically from submitted bequest items.
     # Looks for ##INSERT_SPECIFIC_BEQUESTS## marker first; falls back to finding
     # the "A. To My Spouse" paragraph directly (for Drive templates without the marker).
-    specific_bequests_text = None
+    specific_bequests_paragraphs = []
     if data.get('INCLUDE_SPECIFIC_BEQUESTS'):
-        specific_bequests_text = load_clause_text('LWT_-_Clause_-_Specific_Bequests.txt')
-        if specific_bequests_text:
-            spouse_type = 'husband' if data.get('SPOUSE_GENDER', 'Female') == 'Male' else 'wife'
-            specific_bequests_text = specific_bequests_text.replace('{SPOUSE_TYPE}', spouse_type)
-            specific_bequests_text = specific_bequests_text.replace('{SPOUSE_NAME}', data.get('SN_BENEFICIARY', data.get('SPOUSE_NAME', '')))
+        raw_bequests = data.get('specificBequests', [])
+        if isinstance(raw_bequests, str):
+            raw_bequests = json.loads(raw_bequests)
+        bequest_texts = [b.get('text', '').strip() for b in raw_bequests if b.get('text', '').strip()]
+        if bequest_texts:
+            letters = 'abcdefghijklmnopqrstuvwxyz'
+            specific_bequests_paragraphs.append('I make the following specific bequests:')
+            for i, text in enumerate(bequest_texts):
+                specific_bequests_paragraphs.append(f'({letters[i]})  {text}')
+            specific_bequests_paragraphs.append(
+                'If any of the beneficiaries named above shall predecease me or does not '
+                'survive me by thirty (30) days, the bequest to them shall lapse and become '
+                'a part of my Residuary Estate.'
+            )
+
+    def _insert_bequests_before(anchor_elem):
+        """Insert all specific bequest paragraphs immediately before anchor_elem.
+        Repeated addprevious(anchor) calls produce correct order: each new element
+        slides in just before the anchor, after the previously inserted one.
+        """
+        for para_text in specific_bequests_paragraphs:
+            new_para = doc.add_paragraph(para_text)
+            _format_body_para(new_para)
+            new_para._element.getparent().remove(new_para._element)
+            anchor_elem.addprevious(new_para._element)
 
     # Try marker first
     marker_found = False
     for para in doc.paragraphs:
         if '##INSERT_SPECIFIC_BEQUESTS##' in para.text:
             marker_elem = para._element
-            if specific_bequests_text:
-                new_para = doc.add_paragraph(specific_bequests_text)
-                _format_body_para(new_para)
-                new_para._element.getparent().remove(new_para._element)
-                marker_elem.addprevious(new_para._element)
+            if specific_bequests_paragraphs:
+                _insert_bequests_before(marker_elem)
             marker_elem.getparent().remove(marker_elem)
             marker_found = True
             break
 
     # Fallback: if no marker, find "A. To My Spouse" and insert before it
-    if not marker_found and specific_bequests_text:
+    if not marker_found and specific_bequests_paragraphs:
         for para in doc.paragraphs:
             if para.text.strip().startswith('A.') and 'Spouse' in para.text:
-                anchor_elem = para._element
-                new_para = doc.add_paragraph(specific_bequests_text)
-                _format_body_para(new_para)
-                new_para._element.getparent().remove(new_para._element)
-                anchor_elem.addprevious(new_para._element)
+                _insert_bequests_before(para._element)
                 break
 
     # Step 3: Insert Article III clauses
