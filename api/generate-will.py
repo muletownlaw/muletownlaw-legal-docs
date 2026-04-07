@@ -2,7 +2,8 @@ from http.server import BaseHTTPRequestHandler
 import json
 from io import BytesIO
 from docx import Document
-from docx.shared import Inches
+from docx.shared import Inches, Pt, Emu
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 import os
@@ -62,6 +63,38 @@ def download_template(url):
     except Exception as e:
         print(f"[WILL] Template download failed: {e}")
         raise Exception(f"Failed to download template: {str(e)}")
+
+def _format_body_para(para):
+    """Apply body-text formatting matching the Will template:
+    Charter 12pt, justified, 1.5x line spacing, 1-inch first-line indent,
+    6pt space before and after.
+    """
+    pf = para.paragraph_format
+    pf.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+    pf.line_spacing = 1.5
+    pf.first_line_indent = Emu(914400)  # 1 inch — matches template body paragraphs
+    pf.space_before = Pt(6)
+    pf.space_after = Pt(6)
+    for run in para.runs:
+        run.font.name = 'Charter'
+        run.font.size = Pt(12)
+
+
+def _format_heading_para(para):
+    """Apply article-heading formatting matching the Will template:
+    Charter 14pt bold, centered, 1.0x line spacing, 6pt space before and after.
+    """
+    pf = para.paragraph_format
+    pf.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    pf.line_spacing = 1.0
+    pf.first_line_indent = Emu(0)
+    pf.space_before = Pt(6)
+    pf.space_after = Pt(6)
+    for run in para.runs:
+        run.font.name = 'Charter'
+        run.font.size = Pt(14)
+        run.font.bold = True
+
 
 def format_name_for_filename(full_name):
     """Format name as 'Lastname Firstname' removing middle initials"""
@@ -306,22 +339,12 @@ def insert_article_iii_clauses(doc, data):
 
     # Insert clauses
     for clause_text in clauses_to_insert:
-        # Create new paragraph with Pleading Body style
         new_para = doc.add_paragraph(clause_text)
-        try:
-            new_para.style = 'Pleading Body'
-        except:
-            pass  # Style might not exist
-        
+        _format_body_para(new_para)
+
         # Move paragraph to correct position
         new_para._element.getparent().remove(new_para._element)
         doc.paragraphs[insert_index]._element.addprevious(new_para._element)
-        insert_index += 1
-        
-        # Add spacing
-        spacing_para = doc.add_paragraph()
-        spacing_para._element.getparent().remove(spacing_para._element)
-        doc.paragraphs[insert_index]._element.addprevious(spacing_para._element)
         insert_index += 1
 
 def insert_no_contest_article(doc, data):
@@ -349,10 +372,7 @@ def insert_no_contest_article(doc, data):
 
     # Add Article IV header
     article_para = doc.add_paragraph('Article IV - No Contest Provision')
-    try:
-        article_para.style = 'Pleading Heading'
-    except:
-        pass
+    _format_heading_para(article_para)
 
     article_para._element.getparent().remove(article_para._element)
     doc.paragraphs[insert_index]._element.addprevious(article_para._element)
@@ -360,19 +380,10 @@ def insert_no_contest_article(doc, data):
 
     # Add clause text
     clause_para = doc.add_paragraph(clause_text)
-    try:
-        clause_para.style = 'Pleading Body'
-    except:
-        pass
+    _format_body_para(clause_para)
 
     clause_para._element.getparent().remove(clause_para._element)
     doc.paragraphs[insert_index]._element.addprevious(clause_para._element)
-    insert_index += 1
-
-    # Add spacing
-    spacing_para = doc.add_paragraph()
-    spacing_para._element.getparent().remove(spacing_para._element)
-    doc.paragraphs[insert_index]._element.addprevious(spacing_para._element)
     insert_index += 1
 
     return insert_index  # Return index for renumbering
@@ -413,23 +424,17 @@ def insert_trust_for_minors(doc, data, children):
     
     # Add Article header
     article_para = doc.add_paragraph('Article VI - Trust for Minor Children')
-    try:
-        article_para.style = 'Pleading Heading'
-    except:
-        pass
-    
+    _format_heading_para(article_para)
+
     article_para._element.getparent().remove(article_para._element)
     doc.paragraphs[insert_index]._element.addprevious(article_para._element)
     insert_index += 1
-    
+
     # Add trust text paragraphs
     for paragraph_text in trust_text.split('\n\n'):
         if paragraph_text.strip():
             new_para = doc.add_paragraph(paragraph_text.strip())
-            try:
-                new_para.style = 'Pleading Body'
-            except:
-                pass
+            _format_body_para(new_para)
 
             new_para._element.getparent().remove(new_para._element)
             doc.paragraphs[insert_index]._element.addprevious(new_para._element)
