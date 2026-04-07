@@ -39,24 +39,39 @@
                 DISINHERITED_RELATION: '',
                 INCLUDE_HANDWRITTEN_LIST: false,
                 INCLUDE_REAL_ESTATE_DEBT: false,
-                INCLUDE_NO_CONTEST: false
+                INCLUDE_NO_CONTEST: false,
+                INCLUDE_SELL_REAL_ESTATE: false,
+                INCLUDE_SPECIFIC_BEQUESTS: false,
+                GUARDIAN_NAME_1: '',
+                GUARDIAN_RELATION_1: '',
+                GUARDIAN_NAME_2: '',
+                GUARDIAN_RELATION_2: '',
+                GUARDIAN_NAME_3: '',
+                GUARDIAN_RELATION_3: ''
             });
             
             // Children data
             const [children, setChildren] = useState([]);
             const [needsTrusteeForMinors, setNeedsTrusteeForMinors] = useState(false);
+            const [needsGuardian, setNeedsGuardian] = useState(false);
             
             // Notification state
             const [notification, setNotification] = useState({ show: false, message: '', type: '' });
 
-            // Calculate if any child is under 25
+            // Calculate if any child is under 25 or under 18
             useEffect(() => {
-                const hasMinor = children.some(child => {
+                const hasUnder25 = children.some(child => {
                     if (!child.dob) return false;
                     const age = calculateAge(child.dob);
-                    return age < 25;
+                    return age !== null && age < 25;
                 });
-                setNeedsTrusteeForMinors(hasMinor);
+                const hasUnder18 = children.some(child => {
+                    if (!child.dob) return false;
+                    const age = calculateAge(child.dob);
+                    return age !== null && age < 18;
+                });
+                setNeedsTrusteeForMinors(hasUnder25);
+                setNeedsGuardian(hasUnder18);
             }, [children]);
 
             // Auto-fill spouse as executor if sameFixuciaries is true
@@ -70,8 +85,9 @@
             }, [isMarried, sameFixuciaries, formData.SN_BENEFICIARY]);
 
             function calculateAge(dobString) {
-                if (!dobString) return 0;
-                const dob = new Date(dobString);
+                if (!dobString) return null;
+                const dob = new Date(dobString + 'T00:00:00');
+                if (isNaN(dob.getTime())) return null;
                 const today = new Date();
                 let age = today.getFullYear() - dob.getFullYear();
                 const monthDiff = today.getMonth() - dob.getMonth();
@@ -127,6 +143,11 @@
 
                 if (needsTrusteeForMinors && !formData.TRUSTEE_NAME.trim()) {
                     showNotification('Please enter trustee name (required for children under 25)', 'error');
+                    return;
+                }
+
+                if (needsGuardian && !formData.GUARDIAN_NAME_1.trim()) {
+                    showNotification('Please enter primary guardian name (required for children under 18)', 'error');
                     return;
                 }
 
@@ -452,15 +473,21 @@
                                     <div className="space-y-4">
                                         {children.map((child, index) => {
                                             const age = calculateAge(child.dob);
-                                            const isMinor = age < 25;
+                                            const isUnder18 = age !== null && age < 18;
+                                            const isUnder25 = age !== null && age < 25;
                                             return (
-                                                <div key={index} className={`p-4 rounded-lg border-2 ${isMinor ? 'bg-yellow-50 border-yellow-300' : 'bg-white border-gray-300'}`}>
+                                                <div key={index} className={`p-4 rounded-lg border-2 ${isUnder18 ? 'bg-orange-50 border-orange-300' : isUnder25 ? 'bg-yellow-50 border-yellow-300' : 'bg-white border-gray-300'}`}>
                                                     <div className="flex justify-between items-start mb-3">
                                                         <h3 className="font-semibold text-gray-900">
                                                             Child #{index + 1}
-                                                            {isMinor && age > 0 && (
+                                                            {isUnder18 && (
+                                                                <span className="ml-2 text-sm text-orange-700 bg-orange-100 px-2 py-1 rounded">
+                                                                    Age {age} — Guardian + Trust Required
+                                                                </span>
+                                                            )}
+                                                            {!isUnder18 && isUnder25 && (
                                                                 <span className="ml-2 text-sm text-yellow-700 bg-yellow-100 px-2 py-1 rounded">
-                                                                    Age {age} - Trust Required
+                                                                    Age {age} — Trust Required
                                                                 </span>
                                                             )}
                                                         </h3>
@@ -502,12 +529,12 @@
                                     </div>
                                 )}
 
-                                {/* Trustee for Minors (shown automatically if needed) */}
+                                {/* Trustee for Minors (shown automatically if any child is under 25) */}
                                 {needsTrusteeForMinors && (
                                     <div className="mt-6 p-4 bg-yellow-100 border-2 border-yellow-300 rounded-lg">
-                                        <h3 className="font-bold text-gray-900 mb-2">⚠️ Trustee Required</h3>
+                                        <h3 className="font-bold text-gray-900 mb-2">Trustee Required</h3>
                                         <p className="text-sm text-gray-700 mb-4">
-                                            One or more children are under 25 years old. A trustee is required to manage their inheritance until they reach age 25.
+                                            One or more children are under 25. A trustee is required to manage their inheritance until they reach age 25.
                                         </p>
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -521,6 +548,60 @@
                                                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
                                                 placeholder="e.g., First Farmers & Merchants National Bank"
                                             />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Guardian (shown automatically if any child is under 18) */}
+                                {needsGuardian && (
+                                    <div className="mt-6 p-4 bg-orange-100 border-2 border-orange-300 rounded-lg">
+                                        <h3 className="font-bold text-gray-900 mb-2">Guardian Required</h3>
+                                        <p className="text-sm text-gray-700 mb-4">
+                                            One or more children are under 18. Please designate guardians.
+                                        </p>
+                                        <div className="space-y-4">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Primary Guardian Name *</label>
+                                                    <input type="text" name="GUARDIAN_NAME_1" value={formData.GUARDIAN_NAME_1} onChange={handleInputChange}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                                        placeholder="e.g., Jane Smith" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Relationship to Client</label>
+                                                    <input type="text" name="GUARDIAN_RELATION_1" value={formData.GUARDIAN_RELATION_1} onChange={handleInputChange}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                                        placeholder="e.g., sister, brother, aunt" />
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Alternate Guardian Name</label>
+                                                    <input type="text" name="GUARDIAN_NAME_2" value={formData.GUARDIAN_NAME_2} onChange={handleInputChange}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                                        placeholder="e.g., John Smith" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Relationship to Client</label>
+                                                    <input type="text" name="GUARDIAN_RELATION_2" value={formData.GUARDIAN_RELATION_2} onChange={handleInputChange}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                                        placeholder="e.g., brother, cousin" />
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Second Alternate Guardian Name</label>
+                                                    <input type="text" name="GUARDIAN_NAME_3" value={formData.GUARDIAN_NAME_3} onChange={handleInputChange}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                                        placeholder="e.g., Mary Jones" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">Relationship to Client</label>
+                                                    <input type="text" name="GUARDIAN_RELATION_3" value={formData.GUARDIAN_RELATION_3} onChange={handleInputChange}
+                                                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                                                        placeholder="e.g., aunt, family friend" />
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
@@ -661,6 +742,38 @@
                                     />
                                     <span className="font-medium text-gray-900">
                                         No Contest Provision
+                                    </span>
+                                </label>
+                            </div>
+
+                            {/* Sell Real Estate */}
+                            <div className="mb-4">
+                                <label className="flex items-center space-x-3 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        name="INCLUDE_SELL_REAL_ESTATE"
+                                        checked={formData.INCLUDE_SELL_REAL_ESTATE}
+                                        onChange={handleInputChange}
+                                        className="h-5 w-5 text-blue-600 rounded"
+                                    />
+                                    <span className="font-medium text-gray-900">
+                                        Authority to Sell Real Estate
+                                    </span>
+                                </label>
+                            </div>
+
+                            {/* Specific Bequests */}
+                            <div className="mb-4">
+                                <label className="flex items-center space-x-3 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        name="INCLUDE_SPECIFIC_BEQUESTS"
+                                        checked={formData.INCLUDE_SPECIFIC_BEQUESTS}
+                                        onChange={handleInputChange}
+                                        className="h-5 w-5 text-blue-600 rounded"
+                                    />
+                                    <span className="font-medium text-gray-900">
+                                        Specific Bequests
                                     </span>
                                 </label>
                             </div>
