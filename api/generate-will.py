@@ -94,6 +94,7 @@ def _format_heading_para(para):
         run.font.name = 'Charter'
         run.font.size = Pt(14)
         run.font.bold = True
+        run.font.small_caps = True
 
 
 def format_name_for_filename(full_name):
@@ -644,31 +645,36 @@ def generate_will_document(data):
             articles_index = insert_guardian_article(doc, data, minor_children, articles_index)
             articles_index = insert_trust_for_minors(doc, data, children, articles_index)
 
-    # Step 6: Renumber articles from IV onwards based on what was inserted
-    # Articles I-III are fixed, everything from IV onwards needs sequential numbering
+    # Step 6: Renumber articles from IV onwards based on what was inserted.
+    # Articles I-III are fixed; everything from IV onwards gets sequential numbering.
+    # NOTE: setting para.text wipes run formatting, so we re-apply heading formatting
+    # to every article paragraph in Step 6b below.
     article_pattern = re.compile(r'^Article\s+([IVXLCDM]+)\s+-\s+(.+)$')
     article_num = 4  # Start from IV
     found_article_iv = False
 
-    for i, para in enumerate(doc.paragraphs):
+    for para in doc.paragraphs:
         match = article_pattern.match(para.text.strip())
         if match and found_article_iv:
-            # This is an article that needs renumbering
             article_title = match.group(2)
             new_roman = int_to_roman(article_num)
             para.text = f'Article {new_roman} - {article_title}'
             article_num += 1
         elif match:
-            # Check if this is Article IV or later (start of renumbering)
             current_num_text = match.group(1)
             article_title = match.group(2)
-            # Check if this is the first article after Article III
             if current_num_text in ['IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']:
                 found_article_iv = True
-                # Renumber this one too
                 new_roman = int_to_roman(article_num)
                 para.text = f'Article {new_roman} - {article_title}'
                 article_num += 1
+
+    # Step 6b: Re-apply heading formatting to ALL article headings.
+    # The renumbering step above calls para.text = '...' which wipes run formatting.
+    # Articles IV+ from both the template and inserted clauses need this pass.
+    for para in doc.paragraphs:
+        if article_pattern.match(para.text.strip()):
+            _format_heading_para(para)
 
     # Step 7: Add page numbers if not already there
     add_page_numbers(doc)
