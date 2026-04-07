@@ -625,25 +625,22 @@ def generate_will_document(data):
     replace_in_document(doc, replacements)
     
     # Step 2b: Insert Specific Bequests paragraphs before "A. To My Spouse".
-    # Builds clause text dynamically from submitted bequest items.
+    # Generates blank lettered placeholders for the attorney to fill in Word.
     # Looks for ##INSERT_SPECIFIC_BEQUESTS## marker first; falls back to finding
     # the "A. To My Spouse" paragraph directly (for Drive templates without the marker).
     specific_bequests_paragraphs = []
     if data.get('INCLUDE_SPECIFIC_BEQUESTS'):
-        raw_bequests = data.get('specificBequests', [])
-        if isinstance(raw_bequests, str):
-            raw_bequests = json.loads(raw_bequests)
-        bequest_texts = [b.get('text', '').strip() for b in raw_bequests if b.get('text', '').strip()]
-        if bequest_texts:
-            letters = 'abcdefghijklmnopqrstuvwxyz'
-            specific_bequests_paragraphs.append('I make the following specific bequests:')
-            for i, text in enumerate(bequest_texts):
-                specific_bequests_paragraphs.append(f'({letters[i]})  {text}')
-            specific_bequests_paragraphs.append(
-                'If any of the beneficiaries named above shall predecease me or does not '
-                'survive me by thirty (30) days, the bequest to them shall lapse and become '
-                'a part of my Residuary Estate.'
-            )
+        count = int(data.get('SPECIFIC_BEQUEST_COUNT') or 2)
+        count = max(1, min(count, 26))
+        letters = 'abcdefghijklmnopqrstuvwxyz'
+        specific_bequests_paragraphs.append('I make the following specific bequests:')
+        for i in range(count):
+            specific_bequests_paragraphs.append(f'({letters[i]})')
+        specific_bequests_paragraphs.append(
+            'If any of the beneficiaries named above shall predecease me or does not '
+            'survive me by thirty (30) days, the bequest to them shall lapse and become '
+            'a part of my Residuary Estate.'
+        )
 
     def _insert_bequests_before(anchor_elem):
         """Insert all specific bequest paragraphs immediately before anchor_elem.

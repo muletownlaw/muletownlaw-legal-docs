@@ -56,7 +56,7 @@
                 INCLUDE_NO_CONTEST: false,
                 INCLUDE_SELL_REAL_ESTATE: false,
                 INCLUDE_SPECIFIC_BEQUESTS: false,
-                specificBequests: [{ text: '' }],
+                SPECIFIC_BEQUEST_COUNT: 2,
 
                 // Guardian (auto-shown when any child is under 18)
                 GUARDIAN_NAME_1: '',
@@ -124,28 +124,6 @@
                 }));
             };
 
-            const addBequest = () => {
-                setFormData(prev => ({
-                    ...prev,
-                    specificBequests: [...prev.specificBequests, { text: '' }]
-                }));
-            };
-
-            const removeBequest = (index) => {
-                setFormData(prev => ({
-                    ...prev,
-                    specificBequests: prev.specificBequests.filter((_, i) => i !== index)
-                }));
-            };
-
-            const updateBequest = (index, value) => {
-                setFormData(prev => ({
-                    ...prev,
-                    specificBequests: prev.specificBequests.map((b, i) =>
-                        i === index ? { text: value } : b
-                    )
-                }));
-            };
 
             // Auto-populate trustee with fiduciary if empty
             useEffect(() => {
@@ -224,7 +202,7 @@
                         INCLUDE_NO_CONTEST: data.INCLUDE_NO_CONTEST,
                         INCLUDE_SELL_REAL_ESTATE: data.INCLUDE_SELL_REAL_ESTATE,
                         INCLUDE_SPECIFIC_BEQUESTS: data.INCLUDE_SPECIFIC_BEQUESTS,
-                        specificBequests: data.specificBequests || [],
+                        SPECIFIC_BEQUEST_COUNT: data.SPECIFIC_BEQUEST_COUNT || 2,
                         GUARDIAN_NAME_1: data.GUARDIAN_NAME_1 || '',
                         GUARDIAN_RELATION_1: data.GUARDIAN_RELATION_1 || '',
                         GUARDIAN_NAME_2: data.GUARDIAN_NAME_2 || '',
@@ -807,32 +785,17 @@
                                                 <span className="text-sm">Include Specific Bequests</span>
                                             </label>
                                             {formData.INCLUDE_SPECIFIC_BEQUESTS && (
-                                                <div className="mt-3 ml-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                                                    <div className="text-sm font-medium mb-3 text-blue-900">Specific Bequests</div>
-                                                    {formData.specificBequests.map((bequest, index) => (
-                                                        <div key={index} className="flex items-start gap-2 mb-3">
-                                                            <span className="text-sm font-mono font-semibold mt-2 w-7 shrink-0 text-blue-800">({String.fromCharCode(97 + index)})</span>
-                                                            <textarea
-                                                                value={bequest.text}
-                                                                onChange={e => updateBequest(index, e.target.value)}
-                                                                placeholder={`Describe bequest ${index + 1}...`}
-                                                                rows={2}
-                                                                className="flex-1 px-3 py-2 border rounded-md text-sm"
-                                                            />
-                                                            {formData.specificBequests.length > 1 && (
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => removeBequest(index)}
-                                                                    className="mt-1 text-red-400 hover:text-red-600 text-lg leading-none"
-                                                                >×</button>
-                                                            )}
-                                                        </div>
-                                                    ))}
-                                                    <button
-                                                        type="button"
-                                                        onClick={addBequest}
-                                                        className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                                                    >+ Add Another Bequest</button>
+                                                <div className="mt-2 ml-6 flex items-center gap-2">
+                                                    <label className="text-sm text-gray-600">Approx. number of bequests:</label>
+                                                    <input
+                                                        type="number"
+                                                        name="SPECIFIC_BEQUEST_COUNT"
+                                                        value={formData.SPECIFIC_BEQUEST_COUNT}
+                                                        onChange={handleChange}
+                                                        min="1"
+                                                        max="26"
+                                                        className="w-16 px-2 py-1 border rounded-md text-sm"
+                                                    />
                                                 </div>
                                             )}
                                         </div>
