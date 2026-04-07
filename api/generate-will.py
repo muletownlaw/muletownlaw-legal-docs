@@ -624,8 +624,9 @@ def generate_will_document(data):
     # Step 2: Replace all variables
     replace_in_document(doc, replacements)
     
-    # Step 2b: Handle ##INSERT_SPECIFIC_BEQUESTS## marker — insert Specific Bequests
-    # article before A. To My Spouse if checked, otherwise just remove the marker.
+    # Step 2b: Insert Specific Bequests paragraph before "A. To My Spouse".
+    # Looks for ##INSERT_SPECIFIC_BEQUESTS## marker first; falls back to finding
+    # the "A. To My Spouse" paragraph directly (for Drive templates without the marker).
     specific_bequests_text = None
     if data.get('INCLUDE_SPECIFIC_BEQUESTS'):
         specific_bequests_text = load_clause_text('LWT_-_Clause_-_Specific_Bequests.txt')
@@ -633,6 +634,9 @@ def generate_will_document(data):
             spouse_type = 'husband' if data.get('SPOUSE_GENDER', 'Female') == 'Male' else 'wife'
             specific_bequests_text = specific_bequests_text.replace('{SPOUSE_TYPE}', spouse_type)
             specific_bequests_text = specific_bequests_text.replace('{SPOUSE_NAME}', data.get('SN_BENEFICIARY', data.get('SPOUSE_NAME', '')))
+
+    # Try marker first
+    marker_found = False
     for para in doc.paragraphs:
         if '##INSERT_SPECIFIC_BEQUESTS##' in para.text:
             marker_elem = para._element
@@ -642,7 +646,19 @@ def generate_will_document(data):
                 new_para._element.getparent().remove(new_para._element)
                 marker_elem.addprevious(new_para._element)
             marker_elem.getparent().remove(marker_elem)
+            marker_found = True
             break
+
+    # Fallback: if no marker, find "A. To My Spouse" and insert before it
+    if not marker_found and specific_bequests_text:
+        for para in doc.paragraphs:
+            if para.text.strip().startswith('A.') and 'Spouse' in para.text:
+                anchor_elem = para._element
+                new_para = doc.add_paragraph(specific_bequests_text)
+                _format_body_para(new_para)
+                new_para._element.getparent().remove(new_para._element)
+                anchor_elem.addprevious(new_para._element)
+                break
 
     # Step 3: Insert Article III clauses
     insert_article_iii_clauses(doc, data)
