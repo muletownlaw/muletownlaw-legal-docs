@@ -1,0 +1,1228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Muletown Law - Probate Opening Intake</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- Constants ---
+        const FIRM_NAME = "Muletown Law, P.C.";
+        const FIRM_ADDRESS = "1109 South Garden Street";
+        const FIRM_CITY_STATE_ZIP = "Columbia, TN 38401";
+        const FIRM_PHONE = "(931) 388-2822";
+
+        const tennesseeCounties = ["Anderson", "Bedford", "Benton", "Bledsoe", "Blount", "Bradley", "Campbell", "Cannon", "Carroll", "Carter", "Cheatham", "Chester", "Claiborne", "Clay", "Cocke", "Coffee", "Crockett", "Cumberland", "Davidson", "Decatur", "DeKalb", "Dickson", "Dyer", "Fayette", "Fentress", "Franklin", "Gibson", "Giles", "Grainger", "Greene", "Grundy", "Hamblen", "Hamilton", "Hancock", "Hardeman", "Hardin", "Hawkins", "Haywood", "Henderson", "Henry", "Hickman", "Houston", "Humphreys", "Jackson", "Jefferson", "Johnson", "Knox", "Lake", "Lauderdale", "Lawrence", "Lewis", "Lincoln", "Loudon", "McMinn", "McNairy", "Macon", "Madison", "Marion", "Marshall", "Maury", "Meigs", "Monroe", "Montgomery", "Moore", "Morgan", "Obion", "Overton", "Perry", "Pickett", "Polk", "Putnam", "Rhea", "Roane", "Robertson", "Rutherford", "Scott", "Sequatchie", "Sevier", "Shelby", "Smith", "Stewart", "Sullivan", "Sumner", "Tipton", "Trousdale", "Unicoi", "Union", "Van Buren", "Warren", "Washington", "Wayne", "Weakley", "White", "Williamson", "Wilson"];
+
+        const STEP_NAMES = [
+            "Decedent Info",
+            "Estate Type",
+            "Personal Rep",
+            "Heirs",
+            "Real Property",
+            "Review & Generate"
+        ];
+
+        // --- Helper: calculate age from two dates ---
+        function calculateAge(dob, dod) {
+            if (!dob || !dod) return '';
+            const birth = new Date(dob);
+            const death = new Date(dod);
+            if (isNaN(birth) || isNaN(death)) return '';
+            let age = death.getFullYear() - birth.getFullYear();
+            const m = death.getMonth() - birth.getMonth();
+            if (m < 0 || (m === 0 && death.getDate() < birth.getDate())) {
+                age--;
+            }
+            return age >= 0 ? age : '';
+        }
+
+        // --- Helper: derive PR title ---
+        function derivePRTitle(estateType, prGender) {
+            if (estateType === 'Testate') {
+                return prGender === 'Female' ? 'Executrix' : 'Executor';
+            }
+            return prGender === 'Female' ? 'Administratrix' : 'Administrator';
+        }
+
+        // --- Helper: generate flags ---
+        function generateFlags(data) {
+            const flags = [];
+            const heirs = data.heirs || [];
+
+            if ((data.pr_state || 'Tennessee') !== 'Tennessee') {
+                flags.push({ level: 'warning', message: 'Nonresident PR — may not be eligible under § 30-1-116' });
+            }
+
+            if (data.pr_criminal_history || data.pr_penitentiary_sentence) {
+                flags.push({ level: 'warning', message: 'PR criminal history disclosed — attorney review required per § 30-1-117(10)' });
+            }
+
+            const estVal = parseFloat(data.estimated_estate_value) || 0;
+            if (estVal > 0 && estVal <= 50000 && !data.small_estate_election) {
+                flags.push({ level: 'info', message: 'Estate may qualify for small estate administration under § 30-4-103' });
+            }
+
+            const propertyCounties = (data.properties || []).map(p => p.property_county).filter(Boolean);
+            const decCounty = data.decedent_county || '';
+            const outOfCounty = propertyCounties.filter(c => c && c !== decCounty);
+            if (outOfCounty.length > 0) {
+                flags.push({ level: 'warning', message: `Real property in ${outOfCounty.join(', ')} — ancillary probate may be needed` });
+            }
+
+            const hasMinor = heirs.some(h => h.heir_is_minor);
+            const hasDisability = heirs.some(h => h.heir_has_disability);
+            if (hasMinor || hasDisability) {
+                flags.push({ level: 'warning', message: 'Not all heirs are sui juris — affects closing documents and may require guardian appointment' });
+            }
+
+            if (data.decedent_had_business) {
+                flags.push({ level: 'info', message: 'Decedent had business interest — include details in petition per § 30-1-117(11)' });
+            }
+
+            if (data.estate_type === 'Testate' && !data.will_waives_inventory) {
+                flags.push({ level: 'info', message: 'Will does not waive inventory — inventory will be required' });
+            }
+
+            return flags;
+        }
+
+        // --- Helper: determine which docs will be generated ---
+        function determineDocumentList(data) {
+            const docs = [];
+            const isTestate = data.estate_type === 'Testate';
+            const isSmall = data.small_estate_election;
+            const isMuniment = data.muniment_only;
+
+            docs.push('Petition for Probate');
+            if (isTestate) {
+                docs.push('Oath of Executor/Executrix');
+                if (!isMuniment) {
+                    docs.push('Letters Testamentary');
+                }
+            } else {
+                docs.push('Oath of Administrator/Administratrix');
+                docs.push('Letters of Administration');
+            }
+
+            if (!data.will_waives_bond && !isMuniment) {
+                docs.push('Bond');
+            }
+
+            if (isTestate && data.will_type === 'Holographic') {
+                docs.push('Affidavit of Holographic Will');
+            }
+
+            if (isSmall) {
+                docs.push('Small Estate Affidavit');
+            }
+
+            if (data.named_executor_can_serve === false && data.will_names_executor) {
+                docs.push('Declination of Named Executor');
+            }
+
+            const heirs = data.heirs || [];
+            heirs.forEach(h => {
+                if (!h.heir_predeceased) {
+                    docs.push(`Receipt and Waiver — ${h.heir_full_name || 'Unnamed Heir'}`);
+                }
+            });
+
+            return docs;
+        }
+
+        // --- Helper: format SSN with mask ---
+        function formatSSN(value) {
+            const digits = value.replace(/\D/g, '').slice(0, 9);
+            if (digits.length <= 3) return digits;
+            if (digits.length <= 5) return digits.slice(0, 3) + '-' + digits.slice(3);
+            return digits.slice(0, 3) + '-' + digits.slice(3, 5) + '-' + digits.slice(5);
+        }
+
+        function maskSSN(ssn) {
+            if (!ssn || ssn.length < 4) return ssn;
+            const digits = ssn.replace(/\D/g, '');
+            if (digits.length < 4) return ssn;
+            return '***-**-' + digits.slice(-4);
+        }
+
+        // =============================================
+        // Main Component
+        // =============================================
+        function ProbateIntakeWizard() {
+            const [currentStep, setCurrentStep] = useState(1);
+            const [generating, setGenerating] = useState(false);
+            const [completed, setCompleted] = useState(false);
+            const [error, setError] = useState('');
+
+            const [formData, setFormData] = useState({
+                // Step 1 — Decedent
+                decedent_full_name: '',
+                decedent_aka: '',
+                decedent_gender: '',
+                decedent_dob: '',
+                decedent_dod: '',
+                decedent_age: '',
+                decedent_ssn: '',
+                decedent_place_of_death: '',
+                decedent_address: '',
+                decedent_city: '',
+                decedent_county: 'Maury',
+                decedent_state: 'Tennessee',
+                decedent_marital_status: '',
+                decedent_spouse_name: '',
+                decedent_spouse_dod: '',
+                decedent_had_business: false,
+                decedent_business_details: '',
+
+                // Step 2 — Estate Type
+                estate_type: '',
+                will_type: 'Standard Witnessed',
+                will_execution_date: '',
+                will_witness_1: '',
+                will_witness_2: '',
+                codicil_execution_date: '',
+                codicil_witness_1: '',
+                codicil_witness_2: '',
+                holo_witness_1: '',
+                holo_witness_2: '',
+                will_names_executor: false,
+                will_executor_name: '',
+                named_executor_can_serve: false,
+                will_names_alternate: false,
+                will_alternate_name: '',
+                will_waives_bond: false,
+                will_waives_inventory: false,
+                will_waives_accountings: false,
+                will_appointment_paragraph: '',
+                muniment_only: false,
+                estimated_estate_value: '',
+                small_estate_election: false,
+
+                // Step 3 — Personal Representative
+                pr_full_name: '',
+                pr_address: '',
+                pr_city: '',
+                pr_state: 'Tennessee',
+                pr_age: '',
+                pr_gender: '',
+                pr_relationship: '',
+                pr_phone: '',
+                pr_email: '',
+                pr_criminal_history: false,
+                pr_criminal_details: '',
+                pr_penitentiary_sentence: false,
+                pr_will_attend_probate: true,
+
+                // Step 4 — Heirs
+                heirs: [],
+
+                // Step 5 — Properties
+                properties: [],
+
+                // Step 6 — Attorney
+                attorney_full_name: '',
+                attorney_bpr: ''
+            });
+
+            // Auto-calculate decedent age
+            useEffect(() => {
+                const age = calculateAge(formData.decedent_dob, formData.decedent_dod);
+                if (age !== '' && age !== formData.decedent_age) {
+                    setFormData(prev => ({ ...prev, decedent_age: age }));
+                }
+            }, [formData.decedent_dob, formData.decedent_dod]);
+
+            const handleChange = (e) => {
+                const { name, value, type, checked } = e.target;
+                if (name === 'decedent_ssn') {
+                    setFormData(prev => ({ ...prev, decedent_ssn: formatSSN(value) }));
+                } else {
+                    setFormData(prev => ({
+                        ...prev,
+                        [name]: type === 'checkbox' ? checked : value
+                    }));
+                }
+            };
+
+            // --- Heir helpers ---
+            const addHeir = () => {
+                setFormData(prev => ({
+                    ...prev,
+                    heirs: [...prev.heirs, {
+                        heir_full_name: '',
+                        heir_age: '',
+                        heir_address: '',
+                        heir_city: '',
+                        heir_relationship: '',
+                        heir_gender: '',
+                        heir_is_minor: false,
+                        heir_has_disability: false,
+                        heir_is_beneficiary: false,
+                        heir_beneficiary_type: 'Specific',
+                        heir_predeceased: false
+                    }]
+                }));
+            };
+
+            const removeHeir = (index) => {
+                setFormData(prev => ({
+                    ...prev,
+                    heirs: prev.heirs.filter((_, i) => i !== index)
+                }));
+            };
+
+            const updateHeir = (index, field, value) => {
+                setFormData(prev => ({
+                    ...prev,
+                    heirs: prev.heirs.map((heir, i) =>
+                        i === index ? { ...heir, [field]: value } : heir
+                    )
+                }));
+            };
+
+            // --- Property helpers ---
+            const addProperty = () => {
+                setFormData(prev => ({
+                    ...prev,
+                    properties: [...prev.properties, {
+                        property_address: '',
+                        property_county: '',
+                        property_map_parcel: '',
+                        property_estimated_value: '',
+                        property_description: ''
+                    }]
+                }));
+            };
+
+            const removeProperty = (index) => {
+                setFormData(prev => ({
+                    ...prev,
+                    properties: prev.properties.filter((_, i) => i !== index)
+                }));
+            };
+
+            const updateProperty = (index, field, value) => {
+                setFormData(prev => ({
+                    ...prev,
+                    properties: prev.properties.map((prop, i) =>
+                        i === index ? { ...prop, [field]: value } : prop
+                    )
+                }));
+            };
+
+            // --- Validation per step ---
+            const validateStep = (step) => {
+                switch (step) {
+                    case 1:
+                        if (!formData.decedent_full_name) return 'Decedent name is required';
+                        if (!formData.decedent_gender) return 'Decedent gender is required';
+                        if (!formData.decedent_dod) return 'Date of death is required';
+                        if (!formData.decedent_age && formData.decedent_age !== 0) return 'Decedent age is required';
+                        if (!formData.decedent_place_of_death) return 'Place of death is required';
+                        if (!formData.decedent_address) return 'Decedent address is required';
+                        if (!formData.decedent_city) return 'Decedent city is required';
+                        if (!formData.decedent_county) return 'Decedent county is required';
+                        if (!formData.decedent_marital_status) return 'Marital status is required';
+                        return null;
+                    case 2:
+                        if (!formData.estate_type) return 'Estate type is required';
+                        if (!formData.estimated_estate_value) return 'Estimated estate value is required';
+                        return null;
+                    case 3:
+                        if (!formData.pr_full_name) return 'PR name is required';
+                        if (!formData.pr_address) return 'PR address is required';
+                        if (!formData.pr_city) return 'PR city is required';
+                        if (!formData.pr_state) return 'PR state is required';
+                        if (!formData.pr_age && formData.pr_age !== 0) return 'PR age is required';
+                        if (!formData.pr_gender) return 'PR gender is required';
+                        if (!formData.pr_relationship) return 'PR relationship is required';
+                        return null;
+                    default:
+                        return null;
+                }
+            };
+
+            const handleNext = () => {
+                const err = validateStep(currentStep);
+                if (err) {
+                    setError(err);
+                    return;
+                }
+                setError('');
+                setCurrentStep(prev => Math.min(prev + 1, 6));
+                window.scrollTo(0, 0);
+            };
+
+            const handleBack = () => {
+                setError('');
+                setCurrentStep(prev => Math.max(prev - 1, 1));
+                window.scrollTo(0, 0);
+            };
+
+            // --- Generate ---
+            const handleGenerate = async () => {
+                setGenerating(true);
+                setError('');
+                try {
+                    const payload = {
+                        ...formData,
+                        firm_name: FIRM_NAME,
+                        firm_address: FIRM_ADDRESS,
+                        firm_city_state_zip: FIRM_CITY_STATE_ZIP,
+                        firm_phone: FIRM_PHONE
+                    };
+                    const response = await fetch('/api/generate-probate-opening', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) {
+                        const text = await response.text();
+                        throw new Error(text || 'Server error');
+                    }
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    const safeName = formData.decedent_full_name.replace(/[^a-zA-Z0-9]/g, '_');
+                    a.download = `Probate_Opening_${safeName}.zip`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    setCompleted(true);
+                } catch (e) {
+                    setError('Generation failed: ' + e.message);
+                } finally {
+                    setGenerating(false);
+                }
+            };
+
+            const reset = () => {
+                setCompleted(false);
+                setCurrentStep(1);
+                setError('');
+            };
+
+            // --- Completion screen ---
+            if (completed) {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-green-600 to-blue-700 py-12 px-4 flex items-center justify-center">
+                        <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-2xl p-8 text-center">
+                            <div className="text-6xl mb-4">&#x2705;</div>
+                            <h1 className="text-4xl font-bold text-gray-900 mb-4">Documents Generated!</h1>
+                            <p className="text-gray-600 mb-6">
+                                Probate opening documents for {formData.decedent_full_name} have been downloaded as a ZIP file.
+                            </p>
+                            <button
+                                onClick={reset}
+                                className="bg-blue-600 text-white py-3 px-8 rounded-lg font-semibold hover:bg-blue-700"
+                            >
+                                Start New Intake
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            // --- Generating screen ---
+            if (generating) {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 py-12 px-4 flex items-center justify-center">
+                        <div className="max-w-md mx-auto bg-white rounded-2xl shadow-2xl p-8 text-center">
+                            <div className="animate-spin text-6xl mb-4">&#x2699;&#xFE0F;</div>
+                            <h2 className="text-2xl font-bold text-gray-900 mb-4">Generating Documents...</h2>
+                            <p className="text-gray-600 mb-4">Assembling probate opening packet for {formData.decedent_full_name}</p>
+                            <div className="w-full bg-gray-200 rounded-full h-4">
+                                <div className="bg-blue-600 h-4 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            // --- Step indicator ---
+            const StepIndicator = () => (
+                <div className="flex items-center justify-between mb-8">
+                    {STEP_NAMES.map((name, idx) => {
+                        const stepNum = idx + 1;
+                        const isActive = stepNum === currentStep;
+                        const isCompleted = stepNum < currentStep;
+                        return (
+                            <div key={stepNum} className="flex flex-col items-center flex-1">
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold mb-1 ${
+                                    isActive ? 'bg-blue-600 text-white' :
+                                    isCompleted ? 'bg-green-500 text-white' :
+                                    'bg-gray-200 text-gray-500'
+                                }`}>
+                                    {isCompleted ? '\u2713' : stepNum}
+                                </div>
+                                <span className={`text-xs text-center ${
+                                    isActive ? 'text-blue-600 font-semibold' :
+                                    isCompleted ? 'text-green-600' :
+                                    'text-gray-400'
+                                }`}>{name}</span>
+                            </div>
+                        );
+                    })}
+                </div>
+            );
+
+            // =============================================
+            // STEP 1: Decedent Info
+            // =============================================
+            const Step1 = () => (
+                <div className="p-6 bg-blue-50 rounded-lg">
+                    <h2 className="text-2xl font-semibold mb-4 text-blue-900">Decedent Information</h2>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-medium mb-1">Full Legal Name * <span className="text-gray-400 font-normal">(Last, First Middle Suffix)</span></label>
+                            <input type="text" name="decedent_full_name" value={formData.decedent_full_name} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" placeholder="Smith, John Michael Sr." />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">AKA / Name Variations</label>
+                            <input type="text" name="decedent_aka" value={formData.decedent_aka} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" placeholder="Johnny Smith, J.M. Smith" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Gender *</label>
+                            <select name="decedent_gender" value={formData.decedent_gender} onChange={handleChange} className="w-full px-3 py-2 border rounded-md">
+                                <option value="">-- Select --</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Date of Birth</label>
+                            <input type="date" name="decedent_dob" value={formData.decedent_dob} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Date of Death *</label>
+                            <input type="date" name="decedent_dod" value={formData.decedent_dod} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Age at Death *</label>
+                            <input type="number" name="decedent_age" value={formData.decedent_age} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" placeholder="Auto-calc" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">SSN <span className="text-gray-400 font-normal">(TennCare only)</span></label>
+                            <input type="text" name="decedent_ssn" value={formData.decedent_ssn} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" placeholder="***-**-1234" />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Place of Death *</label>
+                            <input type="text" name="decedent_place_of_death" value={formData.decedent_place_of_death} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" placeholder="Maury Regional Medical Center" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Last Address *</label>
+                            <input type="text" name="decedent_address" value={formData.decedent_address} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" placeholder="123 Main St" />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-1">City *</label>
+                            <input type="text" name="decedent_city" value={formData.decedent_city} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" placeholder="Columbia" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">County *</label>
+                            <select name="decedent_county" value={formData.decedent_county} onChange={handleChange} className="w-full px-3 py-2 border rounded-md">
+                                {tennesseeCounties.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">State</label>
+                            <input type="text" name="decedent_state" value={formData.decedent_state} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Marital Status *</label>
+                            <select name="decedent_marital_status" value={formData.decedent_marital_status} onChange={handleChange} className="w-full px-3 py-2 border rounded-md">
+                                <option value="">-- Select --</option>
+                                <option value="Married">Married</option>
+                                <option value="Widowed">Widowed</option>
+                                <option value="Single">Single</option>
+                                <option value="Divorced">Divorced</option>
+                            </select>
+                        </div>
+                        {(formData.decedent_marital_status === 'Married' || formData.decedent_marital_status === 'Widowed') && (
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Spouse Name</label>
+                                <input type="text" name="decedent_spouse_name" value={formData.decedent_spouse_name} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" />
+                            </div>
+                        )}
+                    </div>
+
+                    {formData.decedent_marital_status === 'Widowed' && (
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium mb-1">Spouse Date of Death</label>
+                            <input type="date" name="decedent_spouse_dod" value={formData.decedent_spouse_dod} onChange={handleChange} className="w-full px-3 py-2 border rounded-md max-w-xs" />
+                        </div>
+                    )}
+
+                    <div className="mb-4">
+                        <label className="flex items-center">
+                            <input type="checkbox" name="decedent_had_business" checked={formData.decedent_had_business} onChange={handleChange} className="mr-2 h-4 w-4" />
+                            <span className="font-medium">Decedent had a business interest</span>
+                        </label>
+                    </div>
+
+                    {formData.decedent_had_business && (
+                        <div className="mb-4 ml-6">
+                            <label className="block text-sm font-medium mb-1">Business Details</label>
+                            <input type="text" name="decedent_business_details" value={formData.decedent_business_details} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" placeholder="Name, type, and ownership interest" />
+                        </div>
+                    )}
+                </div>
+            );
+
+            // =============================================
+            // STEP 2: Estate Type
+            // =============================================
+            const Step2 = () => {
+                const isTestate = formData.estate_type === 'Testate';
+                const estValue = parseFloat(formData.estimated_estate_value) || 0;
+                const showSmallEstate = estValue > 0 && estValue <= 50000;
+                const showStdWitnesses = formData.will_type === 'Standard Witnessed' || formData.will_type === 'Will + Codicil';
+                const showCodicil = formData.will_type === 'Will + Codicil';
+                const showHolo = formData.will_type === 'Holographic';
+
+                return (
+                    <div className="p-6 bg-purple-50 rounded-lg">
+                        <h2 className="text-2xl font-semibold mb-4 text-purple-900">Estate Type</h2>
+
+                        <div className="mb-6">
+                            <label className="block text-sm font-medium mb-2">Estate Type *</label>
+                            <div className="flex gap-6">
+                                <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer hover:bg-white transition flex-1">
+                                    <input type="radio" name="estate_type" value="Testate" checked={formData.estate_type === 'Testate'} onChange={handleChange} className="mr-3 h-5 w-5" />
+                                    <div>
+                                        <div className="font-semibold">Testate</div>
+                                        <div className="text-sm text-gray-600">Decedent left a will</div>
+                                    </div>
+                                </label>
+                                <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer hover:bg-white transition flex-1">
+                                    <input type="radio" name="estate_type" value="Intestate" checked={formData.estate_type === 'Intestate'} onChange={handleChange} className="mr-3 h-5 w-5" />
+                                    <div>
+                                        <div className="font-semibold">Intestate</div>
+                                        <div className="text-sm text-gray-600">No will</div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        {isTestate && (
+                            <div className="space-y-4 mb-6 p-4 bg-white rounded-md">
+                                <h3 className="text-lg font-semibold text-purple-800">Will Details</h3>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Will Type</label>
+                                        <select name="will_type" value={formData.will_type} onChange={handleChange} className="w-full px-3 py-2 border rounded-md">
+                                            <option value="Standard Witnessed">Standard Witnessed</option>
+                                            <option value="Holographic">Holographic</option>
+                                            <option value="Will + Codicil">Will + Codicil</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Will Execution Date</label>
+                                        <input type="date" name="will_execution_date" value={formData.will_execution_date} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" />
+                                    </div>
+                                </div>
+
+                                {showStdWitnesses && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium mb-1">Will Witness 1</label>
+                                            <input type="text" name="will_witness_1" value={formData.will_witness_1} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium mb-1">Will Witness 2</label>
+                                            <input type="text" name="will_witness_2" value={formData.will_witness_2} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {showCodicil && (
+                                    <div className="p-3 bg-purple-50 rounded-md">
+                                        <h4 className="text-sm font-semibold mb-2 text-purple-700">Codicil Details</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium mb-1">Codicil Execution Date</label>
+                                                <input type="date" name="codicil_execution_date" value={formData.codicil_execution_date} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium mb-1">Codicil Witness 1</label>
+                                                <input type="text" name="codicil_witness_1" value={formData.codicil_witness_1} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium mb-1">Codicil Witness 2</label>
+                                                <input type="text" name="codicil_witness_2" value={formData.codicil_witness_2} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {showHolo && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium mb-1">Holographic Will Witness 1</label>
+                                            <input type="text" name="holo_witness_1" value={formData.holo_witness_1} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium mb-1">Holographic Will Witness 2</label>
+                                            <input type="text" name="holo_witness_2" value={formData.holo_witness_2} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" />
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="border-t pt-4 mt-4 space-y-3">
+                                    <h4 className="text-sm font-semibold text-purple-700">Executor Provisions in Will</h4>
+                                    <label className="flex items-center">
+                                        <input type="checkbox" name="will_names_executor" checked={formData.will_names_executor} onChange={handleChange} className="mr-2 h-4 w-4" />
+                                        <span className="text-sm font-medium">Will names an executor</span>
+                                    </label>
+
+                                    {formData.will_names_executor && (
+                                        <div className="ml-6 space-y-3">
+                                            <div>
+                                                <label className="block text-sm font-medium mb-1">Named Executor</label>
+                                                <input type="text" name="will_executor_name" value={formData.will_executor_name} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" />
+                                            </div>
+                                            <label className="flex items-center">
+                                                <input type="checkbox" name="named_executor_can_serve" checked={formData.named_executor_can_serve} onChange={handleChange} className="mr-2 h-4 w-4" />
+                                                <span className="text-sm">Named executor is able and willing to serve</span>
+                                            </label>
+                                            <label className="flex items-center">
+                                                <input type="checkbox" name="will_names_alternate" checked={formData.will_names_alternate} onChange={handleChange} className="mr-2 h-4 w-4" />
+                                                <span className="text-sm">Will names an alternate executor</span>
+                                            </label>
+                                            {formData.will_names_alternate && (
+                                                <div className="ml-6">
+                                                    <label className="block text-sm font-medium mb-1">Alternate Executor Name</label>
+                                                    <input type="text" name="will_alternate_name" value={formData.will_alternate_name} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="border-t pt-4 mt-4 space-y-2">
+                                    <h4 className="text-sm font-semibold text-purple-700">Will Waiver Provisions</h4>
+                                    <label className="flex items-center">
+                                        <input type="checkbox" name="will_waives_bond" checked={formData.will_waives_bond} onChange={handleChange} className="mr-2 h-4 w-4" />
+                                        <span className="text-sm">Will waives bond</span>
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input type="checkbox" name="will_waives_inventory" checked={formData.will_waives_inventory} onChange={handleChange} className="mr-2 h-4 w-4" />
+                                        <span className="text-sm">Will waives inventory</span>
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input type="checkbox" name="will_waives_accountings" checked={formData.will_waives_accountings} onChange={handleChange} className="mr-2 h-4 w-4" />
+                                        <span className="text-sm">Will waives accountings</span>
+                                    </label>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4 mt-4">
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Appointment Paragraph Reference</label>
+                                        <input type="text" name="will_appointment_paragraph" value={formData.will_appointment_paragraph} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" placeholder="e.g., Article III, Paragraph 5" />
+                                    </div>
+                                    <div className="flex items-end">
+                                        <label className="flex items-center">
+                                            <input type="checkbox" name="muniment_only" checked={formData.muniment_only} onChange={handleChange} className="mr-2 h-4 w-4" />
+                                            <span className="text-sm font-medium">Muniment of title only (no administration)</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Estimated Estate Value *</label>
+                                <input type="number" name="estimated_estate_value" value={formData.estimated_estate_value} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" placeholder="e.g., 250000" />
+                            </div>
+                            {showSmallEstate && (
+                                <div className="flex items-end">
+                                    <label className="flex items-center p-3 bg-yellow-50 border border-yellow-300 rounded-md">
+                                        <input type="checkbox" name="small_estate_election" checked={formData.small_estate_election} onChange={handleChange} className="mr-2 h-4 w-4" />
+                                        <span className="text-sm font-medium">Elect small estate administration (&sect; 30-4-103)</span>
+                                    </label>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            };
+
+            // =============================================
+            // STEP 3: Personal Representative
+            // =============================================
+            const Step3 = () => (
+                <div className="p-6 bg-green-50 rounded-lg">
+                    <h2 className="text-2xl font-semibold mb-4 text-green-900">Personal Representative</h2>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-medium mb-1">Full Name *</label>
+                            <input type="text" name="pr_full_name" value={formData.pr_full_name} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" placeholder="Jane M. Smith" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Address *</label>
+                            <input type="text" name="pr_address" value={formData.pr_address} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" placeholder="456 Oak Ave" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">City *</label>
+                            <input type="text" name="pr_city" value={formData.pr_city} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" placeholder="Columbia" />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-1">State *</label>
+                            <input type="text" name="pr_state" value={formData.pr_state} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Age *</label>
+                            <input type="number" name="pr_age" value={formData.pr_age} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Gender *</label>
+                            <select name="pr_gender" value={formData.pr_gender} onChange={handleChange} className="w-full px-3 py-2 border rounded-md">
+                                <option value="">-- Select --</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Relationship to Decedent *</label>
+                            <input type="text" name="pr_relationship" value={formData.pr_relationship} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" placeholder="Daughter" />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Phone</label>
+                            <input type="text" name="pr_phone" value={formData.pr_phone} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" placeholder="(931) 555-1234" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-1">Email</label>
+                            <input type="text" name="pr_email" value={formData.pr_email} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" placeholder="jane@example.com" />
+                        </div>
+                    </div>
+
+                    <div className="space-y-3 border-t pt-4">
+                        <label className="flex items-center">
+                            <input type="checkbox" name="pr_criminal_history" checked={formData.pr_criminal_history} onChange={handleChange} className="mr-2 h-4 w-4" />
+                            <span className="text-sm font-medium">Convicted of any felony or misdemeanor?</span>
+                        </label>
+                        {formData.pr_criminal_history && (
+                            <div className="ml-6">
+                                <label className="block text-sm font-medium mb-1">Details</label>
+                                <textarea name="pr_criminal_details" value={formData.pr_criminal_details} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" rows="3" placeholder="Describe convictions..." />
+                            </div>
+                        )}
+
+                        <label className="flex items-center">
+                            <input type="checkbox" name="pr_penitentiary_sentence" checked={formData.pr_penitentiary_sentence} onChange={handleChange} className="mr-2 h-4 w-4" />
+                            <span className="text-sm font-medium">Served any sentence in a penitentiary?</span>
+                        </label>
+
+                        <label className="flex items-center">
+                            <input type="checkbox" name="pr_will_attend_probate" checked={formData.pr_will_attend_probate} onChange={handleChange} className="mr-2 h-4 w-4" />
+                            <span className="text-sm font-medium">PR will appear at clerk's office for oath</span>
+                        </label>
+                    </div>
+                </div>
+            );
+
+            // =============================================
+            // STEP 4: Heirs / Beneficiaries
+            // =============================================
+            const Step4 = () => {
+                const isTestate = formData.estate_type === 'Testate';
+                return (
+                    <div className="p-6 bg-yellow-50 rounded-lg">
+                        <h2 className="text-2xl font-semibold mb-4 text-yellow-900">Heirs / Beneficiaries</h2>
+
+                        {formData.heirs.length === 0 && (
+                            <p className="text-gray-500 mb-4">No heirs added yet. Click below to add.</p>
+                        )}
+
+                        {formData.heirs.map((heir, idx) => (
+                            <div key={idx} className="mb-4 p-4 bg-white rounded-md border">
+                                <div className="flex justify-between items-center mb-3">
+                                    <h3 className="font-semibold text-sm text-yellow-800">Heir #{idx + 1}</h3>
+                                    <button onClick={() => removeHeir(idx)} className="px-3 py-1 bg-red-100 text-red-600 rounded-md hover:bg-red-200 text-sm">Remove</button>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-medium mb-1">Full Name</label>
+                                        <input type="text" value={heir.heir_full_name} onChange={(e) => updateHeir(idx, 'heir_full_name', e.target.value)} className="w-full px-3 py-2 border rounded-md" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Age</label>
+                                        <input type="number" value={heir.heir_age} onChange={(e) => updateHeir(idx, 'heir_age', e.target.value)} className="w-full px-3 py-2 border rounded-md" />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Address</label>
+                                        <input type="text" value={heir.heir_address} onChange={(e) => updateHeir(idx, 'heir_address', e.target.value)} className="w-full px-3 py-2 border rounded-md" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">City</label>
+                                        <input type="text" value={heir.heir_city} onChange={(e) => updateHeir(idx, 'heir_city', e.target.value)} className="w-full px-3 py-2 border rounded-md" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Relationship</label>
+                                        <input type="text" value={heir.heir_relationship} onChange={(e) => updateHeir(idx, 'heir_relationship', e.target.value)} className="w-full px-3 py-2 border rounded-md" placeholder="Son, Daughter, etc." />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Gender</label>
+                                        <select value={heir.heir_gender} onChange={(e) => updateHeir(idx, 'heir_gender', e.target.value)} className="w-full px-3 py-2 border rounded-md">
+                                            <option value="">-- Select --</option>
+                                            <option value="Male">Male</option>
+                                            <option value="Female">Female</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex items-end gap-4">
+                                        <label className="flex items-center">
+                                            <input type="checkbox" checked={heir.heir_is_minor} onChange={(e) => updateHeir(idx, 'heir_is_minor', e.target.checked)} className="mr-2 h-4 w-4" />
+                                            <span className="text-sm">Minor</span>
+                                        </label>
+                                        <label className="flex items-center">
+                                            <input type="checkbox" checked={heir.heir_has_disability} onChange={(e) => updateHeir(idx, 'heir_has_disability', e.target.checked)} className="mr-2 h-4 w-4" />
+                                            <span className="text-sm">Disability</span>
+                                        </label>
+                                        <label className="flex items-center">
+                                            <input type="checkbox" checked={heir.heir_predeceased} onChange={(e) => updateHeir(idx, 'heir_predeceased', e.target.checked)} className="mr-2 h-4 w-4" />
+                                            <span className="text-sm">Predeceased</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                {isTestate && (
+                                    <div className="border-t pt-3 mt-3">
+                                        <label className="flex items-center mb-2">
+                                            <input type="checkbox" checked={heir.heir_is_beneficiary} onChange={(e) => updateHeir(idx, 'heir_is_beneficiary', e.target.checked)} className="mr-2 h-4 w-4" />
+                                            <span className="text-sm font-medium">Named as beneficiary in will</span>
+                                        </label>
+                                        {heir.heir_is_beneficiary && (
+                                            <div className="ml-6">
+                                                <label className="block text-sm font-medium mb-1">Beneficiary Type</label>
+                                                <select value={heir.heir_beneficiary_type} onChange={(e) => updateHeir(idx, 'heir_beneficiary_type', e.target.value)} className="w-full px-3 py-2 border rounded-md max-w-xs">
+                                                    <option value="Specific">Specific</option>
+                                                    <option value="Residuary">Residuary</option>
+                                                    <option value="Both">Both</option>
+                                                </select>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+
+                        <button onClick={addHeir} className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700">
+                            + Add Heir
+                        </button>
+                    </div>
+                );
+            };
+
+            // =============================================
+            // STEP 5: Real Property
+            // =============================================
+            const Step5 = () => (
+                <div className="p-6 bg-gray-100 rounded-lg">
+                    <h2 className="text-2xl font-semibold mb-2">Real Property</h2>
+                    <p className="text-sm text-gray-500 mb-4">If the decedent owned no real property, you may skip this step.</p>
+
+                    {formData.properties.length === 0 && (
+                        <p className="text-gray-400 italic mb-4">No real property added.</p>
+                    )}
+
+                    {formData.properties.map((prop, idx) => (
+                        <div key={idx} className="mb-4 p-4 bg-white rounded-md border">
+                            <div className="flex justify-between items-center mb-3">
+                                <h3 className="font-semibold text-sm">Property #{idx + 1}</h3>
+                                <button onClick={() => removeProperty(idx)} className="px-3 py-1 bg-red-100 text-red-600 rounded-md hover:bg-red-200 text-sm">Remove</button>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Property Address</label>
+                                    <input type="text" value={prop.property_address} onChange={(e) => updateProperty(idx, 'property_address', e.target.value)} className="w-full px-3 py-2 border rounded-md" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">County</label>
+                                    <input type="text" value={prop.property_county} onChange={(e) => updateProperty(idx, 'property_county', e.target.value)} className="w-full px-3 py-2 border rounded-md" />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Map/Parcel Number</label>
+                                    <input type="text" value={prop.property_map_parcel} onChange={(e) => updateProperty(idx, 'property_map_parcel', e.target.value)} className="w-full px-3 py-2 border rounded-md" placeholder="e.g., 045-012.00" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Estimated Value</label>
+                                    <input type="number" value={prop.property_estimated_value} onChange={(e) => updateProperty(idx, 'property_estimated_value', e.target.value)} className="w-full px-3 py-2 border rounded-md" />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Legal Description</label>
+                                <textarea value={prop.property_description} onChange={(e) => updateProperty(idx, 'property_description', e.target.value)} className="w-full px-3 py-2 border rounded-md" rows="2" placeholder="Legal description or deed reference" />
+                            </div>
+                        </div>
+                    ))}
+
+                    <button onClick={addProperty} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">
+                        + Add Property
+                    </button>
+                </div>
+            );
+
+            // =============================================
+            // STEP 6: Review & Generate
+            // =============================================
+            const Step6 = () => {
+                const flags = generateFlags(formData);
+                const docList = determineDocumentList(formData);
+                const prTitle = derivePRTitle(formData.estate_type, formData.pr_gender);
+                const warnings = flags.filter(f => f.level === 'warning');
+                const infos = flags.filter(f => f.level === 'info');
+
+                const ReviewRow = ({ label, value }) => (
+                    value ? (
+                        <div className="flex py-1">
+                            <span className="text-sm text-gray-500 w-48 flex-shrink-0">{label}:</span>
+                            <span className="text-sm font-medium">{value}</span>
+                        </div>
+                    ) : null
+                );
+
+                return (
+                    <div className="space-y-6">
+                        {/* Flags Panel */}
+                        {flags.length > 0 && (
+                            <div className="p-4 bg-white rounded-lg border-2 border-yellow-300">
+                                <h3 className="text-lg font-semibold mb-3">Flags & Warnings</h3>
+                                <div className="space-y-2">
+                                    {warnings.map((f, i) => (
+                                        <div key={`w-${i}`} className="flex items-start gap-2">
+                                            <span className="px-2 py-0.5 bg-yellow-200 text-yellow-800 text-xs font-bold rounded">WARNING</span>
+                                            <span className="text-sm">{f.message}</span>
+                                        </div>
+                                    ))}
+                                    {infos.map((f, i) => (
+                                        <div key={`i-${i}`} className="flex items-start gap-2">
+                                            <span className="px-2 py-0.5 bg-blue-200 text-blue-800 text-xs font-bold rounded">INFO</span>
+                                            <span className="text-sm">{f.message}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Decedent Summary */}
+                        <div className="p-4 bg-blue-50 rounded-lg">
+                            <h3 className="text-lg font-semibold mb-2 text-blue-900">Decedent</h3>
+                            <ReviewRow label="Name" value={formData.decedent_full_name} />
+                            {formData.decedent_aka && <ReviewRow label="AKA" value={formData.decedent_aka} />}
+                            <ReviewRow label="Gender" value={formData.decedent_gender} />
+                            <ReviewRow label="DOB" value={formData.decedent_dob} />
+                            <ReviewRow label="DOD" value={formData.decedent_dod} />
+                            <ReviewRow label="Age" value={formData.decedent_age} />
+                            {formData.decedent_ssn && <ReviewRow label="SSN" value={maskSSN(formData.decedent_ssn)} />}
+                            <ReviewRow label="Place of Death" value={formData.decedent_place_of_death} />
+                            <ReviewRow label="Address" value={`${formData.decedent_address}, ${formData.decedent_city}, ${formData.decedent_county} Co., ${formData.decedent_state}`} />
+                            <ReviewRow label="Marital Status" value={formData.decedent_marital_status} />
+                            {formData.decedent_spouse_name && <ReviewRow label="Spouse" value={formData.decedent_spouse_name} />}
+                            {formData.decedent_spouse_dod && <ReviewRow label="Spouse DOD" value={formData.decedent_spouse_dod} />}
+                            {formData.decedent_had_business && <ReviewRow label="Business" value={formData.decedent_business_details || 'Yes'} />}
+                        </div>
+
+                        {/* Estate Summary */}
+                        <div className="p-4 bg-purple-50 rounded-lg">
+                            <h3 className="text-lg font-semibold mb-2 text-purple-900">Estate</h3>
+                            <ReviewRow label="Estate Type" value={formData.estate_type} />
+                            {formData.estate_type === 'Testate' && (
+                                <>
+                                    <ReviewRow label="Will Type" value={formData.will_type} />
+                                    <ReviewRow label="Will Date" value={formData.will_execution_date} />
+                                    {formData.will_names_executor && <ReviewRow label="Named Executor" value={formData.will_executor_name} />}
+                                    <ReviewRow label="Waives Bond" value={formData.will_waives_bond ? 'Yes' : 'No'} />
+                                    <ReviewRow label="Waives Inventory" value={formData.will_waives_inventory ? 'Yes' : 'No'} />
+                                    <ReviewRow label="Waives Accountings" value={formData.will_waives_accountings ? 'Yes' : 'No'} />
+                                    {formData.muniment_only && <ReviewRow label="Muniment Only" value="Yes" />}
+                                </>
+                            )}
+                            <ReviewRow label="Estimated Value" value={formData.estimated_estate_value ? `$${parseFloat(formData.estimated_estate_value).toLocaleString()}` : ''} />
+                            {formData.small_estate_election && <ReviewRow label="Small Estate" value="Elected" />}
+                        </div>
+
+                        {/* PR Summary */}
+                        <div className="p-4 bg-green-50 rounded-lg">
+                            <h3 className="text-lg font-semibold mb-2 text-green-900">Personal Representative</h3>
+                            <ReviewRow label="Name" value={formData.pr_full_name} />
+                            <ReviewRow label="Title" value={prTitle} />
+                            <ReviewRow label="Address" value={`${formData.pr_address}, ${formData.pr_city}, ${formData.pr_state}`} />
+                            <ReviewRow label="Age" value={formData.pr_age} />
+                            <ReviewRow label="Relationship" value={formData.pr_relationship} />
+                            {formData.pr_phone && <ReviewRow label="Phone" value={formData.pr_phone} />}
+                            {formData.pr_email && <ReviewRow label="Email" value={formData.pr_email} />}
+                            {formData.pr_criminal_history && <ReviewRow label="Criminal History" value={formData.pr_criminal_details || 'Disclosed'} />}
+                            {formData.pr_penitentiary_sentence && <ReviewRow label="Penitentiary" value="Yes" />}
+                            <ReviewRow label="Will Attend Oath" value={formData.pr_will_attend_probate ? 'Yes' : 'No'} />
+                        </div>
+
+                        {/* Heirs Summary */}
+                        {formData.heirs.length > 0 && (
+                            <div className="p-4 bg-yellow-50 rounded-lg">
+                                <h3 className="text-lg font-semibold mb-2 text-yellow-900">Heirs ({formData.heirs.length})</h3>
+                                {formData.heirs.map((h, i) => (
+                                    <div key={i} className="mb-2 p-2 bg-white rounded border text-sm">
+                                        <span className="font-medium">{h.heir_full_name || 'Unnamed'}</span>
+                                        {h.heir_relationship && <span className="text-gray-500"> — {h.heir_relationship}</span>}
+                                        {h.heir_age && <span className="text-gray-500">, age {h.heir_age}</span>}
+                                        {h.heir_is_minor && <span className="ml-2 px-1.5 py-0.5 bg-orange-100 text-orange-700 text-xs rounded">Minor</span>}
+                                        {h.heir_has_disability && <span className="ml-1 px-1.5 py-0.5 bg-red-100 text-red-700 text-xs rounded">Disability</span>}
+                                        {h.heir_predeceased && <span className="ml-1 px-1.5 py-0.5 bg-gray-200 text-gray-600 text-xs rounded">Predeceased</span>}
+                                        {h.heir_is_beneficiary && <span className="ml-1 px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs rounded">{h.heir_beneficiary_type} Beneficiary</span>}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Properties Summary */}
+                        {formData.properties.length > 0 && (
+                            <div className="p-4 bg-gray-100 rounded-lg">
+                                <h3 className="text-lg font-semibold mb-2">Real Property ({formData.properties.length})</h3>
+                                {formData.properties.map((p, i) => (
+                                    <div key={i} className="mb-2 p-2 bg-white rounded border text-sm">
+                                        <span className="font-medium">{p.property_address || 'No address'}</span>
+                                        {p.property_county && <span className="text-gray-500"> — {p.property_county} County</span>}
+                                        {p.property_estimated_value && <span className="text-gray-500"> — ${parseFloat(p.property_estimated_value).toLocaleString()}</span>}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Documents to Generate */}
+                        <div className="p-4 bg-white rounded-lg border">
+                            <h3 className="text-lg font-semibold mb-2">Documents to Generate ({docList.length})</h3>
+                            <ul className="space-y-1">
+                                {docList.map((doc, i) => (
+                                    <li key={i} className="flex items-center text-sm">
+                                        <span className="text-blue-500 mr-2">&#x25CF;</span>
+                                        {doc}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+
+                        {/* Attorney Config */}
+                        <div className="p-4 bg-gray-50 rounded-lg border">
+                            <h3 className="text-lg font-semibold mb-3">Attorney Configuration</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Attorney Name</label>
+                                    <input type="text" name="attorney_full_name" value={formData.attorney_full_name} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" placeholder="Attorney full name" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">BPR Number</label>
+                                    <input type="text" name="attorney_bpr" value={formData.attorney_bpr} onChange={handleChange} className="w-full px-3 py-2 border rounded-md" placeholder="e.g., 012345" />
+                                </div>
+                            </div>
+                            <div className="mt-2 text-xs text-gray-400">
+                                {FIRM_NAME} | {FIRM_ADDRESS}, {FIRM_CITY_STATE_ZIP} | {FIRM_PHONE}
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            // --- Render current step ---
+            const renderStep = () => {
+                switch (currentStep) {
+                    case 1: return <Step1 />;
+                    case 2: return <Step2 />;
+                    case 3: return <Step3 />;
+                    case 4: return <Step4 />;
+                    case 5: return <Step5 />;
+                    case 6: return <Step6 />;
+                    default: return null;
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-50 py-12 px-4">
+                    <div className="max-w-5xl mx-auto">
+                        {/* Header */}
+                        <div className="mb-4">
+                            <a href="index.html" className="text-blue-600 hover:text-blue-800 text-sm font-medium">&larr; Back to Home</a>
+                        </div>
+
+                        <div className="bg-white rounded-2xl shadow-xl p-8">
+                            <h1 className="text-4xl font-bold text-gray-900 mb-2 text-center">Muletown Law</h1>
+                            <p className="text-gray-600 text-center mb-8">Probate Opening Intake</p>
+
+                            <StepIndicator />
+
+                            {/* Error */}
+                            {error && (
+                                <div className="mb-4 p-3 bg-red-50 border border-red-300 rounded-md text-red-700 text-sm">
+                                    {error}
+                                </div>
+                            )}
+
+                            {/* Step content */}
+                            {renderStep()}
+
+                            {/* Navigation */}
+                            <div className="flex justify-between mt-8">
+                                {currentStep > 1 ? (
+                                    <button onClick={handleBack} className="px-6 py-3 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-100">
+                                        Back
+                                    </button>
+                                ) : <div />}
+
+                                {currentStep < 6 ? (
+                                    <button onClick={handleNext} className="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700">
+                                        Next
+                                    </button>
+                                ) : (
+                                    <button onClick={handleGenerate} className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-bold text-lg hover:from-blue-700 hover:to-purple-700 shadow-lg transition-all">
+                                        Generate Documents
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<ProbateIntakeWizard />, document.getElementById('root'));
+    </script>
+</body>
+</html>
