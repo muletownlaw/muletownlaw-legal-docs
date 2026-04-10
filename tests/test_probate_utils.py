@@ -478,11 +478,101 @@ class TestBuildCommonReplacements:
             'pr_gender': 'Male',
         }
         result = build_common_replacements(data)
-        # No criminal history — should contain 'never been convicted'
-        # The criminal statement is embedded in the replacement dict
-        # but it's part of build_common_replacements internal logic
-        # Just verify the function runs without error
-        assert isinstance(result, dict)
+        assert '{CRIMINAL_STATEMENT}' in result
+        assert 'never been convicted' in result['{CRIMINAL_STATEMENT}']
+
+    def test_criminal_history_disclosed(self):
+        data = {
+            'decedent_full_name': 'John Smith',
+            'decedent_gender': 'Male',
+            'decedent_dod': '2026-01-15',
+            'estate_type': 'Testate',
+            'pr_gender': 'Male',
+            'pr_criminal_history': True,
+            'pr_criminal_details': 'convicted of DUI in 2010',
+        }
+        result = build_common_replacements(data)
+        assert result['{CRIMINAL_STATEMENT}'] == 'convicted of DUI in 2010'
+
+    def test_business_statement_no_business(self):
+        data = {
+            'decedent_full_name': 'John Smith',
+            'decedent_gender': 'Male',
+            'decedent_dod': '2026-01-15',
+            'estate_type': 'Testate',
+            'pr_gender': 'Male',
+        }
+        result = build_common_replacements(data)
+        assert '{BUSINESS_STATEMENT}' in result
+        assert 'was not the owner' in result['{BUSINESS_STATEMENT}']
+
+    def test_business_statement_with_business(self):
+        data = {
+            'decedent_full_name': 'John Smith',
+            'decedent_gender': 'Male',
+            'decedent_dod': '2026-01-15',
+            'estate_type': 'Testate',
+            'pr_gender': 'Male',
+            'decedent_had_business': True,
+            'decedent_business_details': 'a sole proprietor of ABC Corp',
+        }
+        result = build_common_replacements(data)
+        assert 'ABC Corp' in result['{BUSINESS_STATEMENT}']
+
+    def test_waiver_statement(self):
+        data = {
+            'decedent_full_name': 'John Smith',
+            'decedent_gender': 'Male',
+            'decedent_dod': '2026-01-15',
+            'estate_type': 'Testate',
+            'pr_gender': 'Male',
+            'will_waives_bond': True,
+            'will_waives_inventory': True,
+        }
+        result = build_common_replacements(data)
+        assert '{WAIVER_STATEMENT}' in result
+        assert 'making bond' in result['{WAIVER_STATEMENT}']
+        assert 'filing an inventory' in result['{WAIVER_STATEMENT}']
+
+    def test_waiver_statement_empty(self):
+        data = {
+            'decedent_full_name': 'John Smith',
+            'decedent_gender': 'Male',
+            'decedent_dod': '2026-01-15',
+            'estate_type': 'Testate',
+            'pr_gender': 'Male',
+        }
+        result = build_common_replacements(data)
+        assert result['{WAIVER_STATEMENT}'] == ''
+
+    def test_sui_juris_statement_all_sui_juris(self):
+        data = {
+            'decedent_full_name': 'John Smith',
+            'decedent_gender': 'Male',
+            'decedent_dod': '2026-01-15',
+            'estate_type': 'Testate',
+            'pr_gender': 'Male',
+            'heirs': [
+                {'heir_full_name': 'Jane Smith', 'heir_is_minor': False,
+                 'heir_has_disability': False},
+            ],
+        }
+        result = build_common_replacements(data)
+        assert result['{SUI_JURIS_STATEMENT}'] == 'All beneficiaries are sui juris.'
+
+    def test_sui_juris_statement_not_all(self):
+        data = {
+            'decedent_full_name': 'John Smith',
+            'decedent_gender': 'Male',
+            'decedent_dod': '2026-01-15',
+            'estate_type': 'Testate',
+            'pr_gender': 'Male',
+            'heirs': [
+                {'heir_full_name': 'Minor Child', 'heir_is_minor': True},
+            ],
+        }
+        result = build_common_replacements(data)
+        assert result['{SUI_JURIS_STATEMENT}'] == 'Not all beneficiaries are sui juris.'
 
     def test_heirs_list_formatting(self):
         data = {
@@ -500,3 +590,150 @@ class TestBuildCommonReplacements:
         result = build_common_replacements(data)
         assert 'Jane Smith' in result['{HEIRS_LIST}']
         assert 'Daughter' in result['{HEIRS_LIST}']
+
+    def test_placeholder_variants_petitioner(self):
+        """Test that all petitioner name variants map correctly."""
+        data = {
+            'decedent_full_name': 'John Smith',
+            'decedent_gender': 'Male',
+            'decedent_dod': '2026-01-15',
+            'estate_type': 'Testate',
+            'pr_gender': 'Female',
+            'pr_full_name': 'Jane Smith',
+            'pr_address': '123 Main St',
+            'pr_city': 'Columbia',
+            'pr_age': 45,
+        }
+        result = build_common_replacements(data)
+        # All petitioner name variants
+        assert result['{Petitioner Name}'] == 'Jane Smith'
+        assert result['{petitioner}'] == 'Jane Smith'
+        assert result["{petitioner's name}"] == 'Jane Smith'
+        # PR address variants
+        assert result['{ADDRESS OF PETITIONER}'] == '123 Main St'
+        assert result['{STREET OF PETITIONER}'] == '123 Main St'
+        assert result['{Petitioner Address}'] == '123 Main St'
+        # PR city variants
+        assert result['{CITY OF PETITIONER}'] == 'Columbia'
+        # PR age variants
+        assert result['{AGE OF PETITIONER}'] == '45'
+
+    def test_placeholder_variants_decedent(self):
+        """Test lowercase and mixed-case decedent variants."""
+        data = {
+            'decedent_full_name': 'John Smith',
+            'decedent_gender': 'Male',
+            'decedent_dod': '2026-01-15',
+            'decedent_county': 'Maury',
+            'decedent_age': 75,
+            'estate_type': 'Testate',
+            'pr_gender': 'Male',
+        }
+        result = build_common_replacements(data)
+        assert result['{decedent name}'] == 'John Smith'
+        assert result['{Date of Death}'] == 'January 15, 2026'
+        assert result['{County of Residence for Decedent}'] == 'Maury'
+        assert result['{AGE}'] == '75'
+        assert result['{AGE AT DEATH}'] == '75'
+        assert result['{DECEDENT PRONOUN \u2013 HIS/HER}'] == 'his'
+
+    def test_placeholder_variants_attorney(self):
+        """Test attorney name variants and BPR."""
+        data = {
+            'decedent_full_name': 'John Smith',
+            'decedent_gender': 'Male',
+            'decedent_dod': '2026-01-15',
+            'estate_type': 'Testate',
+            'pr_gender': 'Male',
+            'attorney_full_name': 'Dale Hutto',
+            'attorney_bpr': '12345',
+        }
+        result = build_common_replacements(data)
+        assert result['{ATTORNEY}'] == 'Dale Hutto'
+        assert result['{Attorney first name}'] == 'Dale'
+        assert result['{BPR #}'] == '12345'
+
+    def test_placeholder_variants_date(self):
+        """Test year, month, and current year variants."""
+        data = {
+            'decedent_full_name': 'John Smith',
+            'decedent_gender': 'Male',
+            'decedent_dod': '2026-01-15',
+            'estate_type': 'Testate',
+            'pr_gender': 'Male',
+        }
+        result = build_common_replacements(data)
+        from datetime import datetime
+        now = datetime.now()
+        assert result['{YEAR}'] == str(now.year)
+        assert result['{Current Year}'] == str(now.year)
+        assert result['{Month}'] == now.strftime('%B')
+
+    def test_placeholder_variants_title_and_relationship(self):
+        """Test title and relationship variants."""
+        data = {
+            'decedent_full_name': 'John Smith',
+            'decedent_gender': 'Male',
+            'decedent_dod': '2026-01-15',
+            'estate_type': 'Testate',
+            'pr_gender': 'Female',
+            'pr_full_name': 'Jane Smith',
+            'pr_relationship': 'Daughter',
+        }
+        result = build_common_replacements(data)
+        assert result['{Executor/Executrix}'] == 'Executrix'
+        assert result['{Title}'] == 'Executrix'
+        assert result['{Relation of Petition to Decedent}'] == 'Daughter'
+        assert result['{Petitioner Pronoun HIS/HER}'] == 'her'
+
+    def test_placeholder_docket_lowercase(self):
+        """Test lowercase docket number variant."""
+        data = {
+            'decedent_full_name': 'John Smith',
+            'decedent_gender': 'Male',
+            'decedent_dod': '2026-01-15',
+            'estate_type': 'Testate',
+            'pr_gender': 'Male',
+            'case_number': '2026-PR-001',
+        }
+        result = build_common_replacements(data)
+        assert result['{docket number}'] == '2026-PR-001'
+
+    def test_placeholder_were_or_no(self):
+        """Test were/were no conditional placeholder."""
+        data = {
+            'decedent_full_name': 'John Smith',
+            'decedent_gender': 'Male',
+            'decedent_dod': '2026-01-15',
+            'estate_type': 'Testate',
+            'pr_gender': 'Male',
+            'were_or_no_objections': 'were',
+        }
+        result = build_common_replacements(data)
+        assert result['{were/were no}'] == 'were'
+
+
+class TestDerivePRTitleErrors:
+    def test_invalid_estate_type_raises_value_error(self):
+        with pytest.raises(ValueError, match='Unknown estate_type/pr_gender'):
+            derive_pr_title('InvalidType', 'Male')
+
+    def test_invalid_gender_raises_value_error(self):
+        with pytest.raises(ValueError, match='Unknown estate_type/pr_gender'):
+            derive_pr_title('Testate', 'Other')
+
+    def test_none_values_raise_value_error(self):
+        with pytest.raises(ValueError):
+            derive_pr_title(None, None)
+
+
+class TestSelectOpeningDocumentsErrors:
+    def test_testate_no_will_type_raises_value_error(self):
+        data = {'estate_type': 'Testate'}
+        with pytest.raises(ValueError, match='Unknown will_type'):
+            select_opening_documents(data)
+
+    def test_testate_invalid_will_type_raises_value_error(self):
+        data = {'estate_type': 'Testate', 'will_type': 'Notarized'}
+        with pytest.raises(ValueError, match='Unknown will_type'):
+            select_opening_documents(data)

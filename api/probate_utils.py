@@ -24,7 +24,15 @@ def derive_pr_title(estate_type, pr_gender):
         ('Intestate', 'Male'): 'Administrator',
         ('Intestate', 'Female'): 'Administratrix',
     }
-    return titles[(estate_type, pr_gender)]
+    try:
+        return titles[(estate_type, pr_gender)]
+    except KeyError:
+        raise ValueError(
+            f"Unknown estate_type/pr_gender combination: "
+            f"({estate_type!r}, {pr_gender!r}). "
+            f"estate_type must be 'Testate' or 'Intestate'; "
+            f"pr_gender must be 'Male' or 'Female'."
+        )
 
 
 # --- Date Formatting ---
@@ -32,7 +40,7 @@ def derive_pr_title(estate_type, pr_gender):
 def format_date_legal(date_str):
     """Convert YYYY-MM-DD to 'January 1, 2026' format."""
     dt = datetime.strptime(date_str, '%Y-%m-%d')
-    return dt.strftime('%B %-d, %Y')
+    return f"{dt.strftime('%B')} {dt.day}, {dt.strftime('%Y')}"
 
 
 def ordinal_day(date_str):
@@ -158,6 +166,11 @@ def select_opening_documents(data):
                           'Petition to Probate Will and Codicil'))
             docs.append(('Order Admitting Codicil and LWT.docx',
                           'Order Admitting Codicil and Last Will and Testament'))
+        else:
+            raise ValueError(
+                f"Unknown will_type {data.get('will_type')!r} for Testate estate. "
+                f"Expected 'Standard Witnessed', 'Holographic', or 'Will + Codicil'."
+            )
     else:  # Intestate
         docs.append(('Petition for Appointment of Administrator CURLY.docx',
                       'Petition for Appointment of Administrator'))
@@ -195,7 +208,7 @@ def determine_declinations(data):
                 'gender': data.get('will_executor_gender', 'Male'),
             })
 
-        if data.get('will_names_alternate') and data.get('will_alternate_name'):
+        if data.get('will_names_alternate'):
             # Alternate exists and presumably can serve — no further declinations
             return declinations
 
@@ -367,14 +380,11 @@ def calculate_deadlines(dod_str, publication_date_str=None):
     deadlines = {}
 
     # Absolute bar date: DOD + 12 months
-    if dod.month == 12:
-        bar_date = dod.replace(year=dod.year + 1, month=12)
-    else:
-        try:
-            bar_date = dod.replace(year=dod.year + 1)
-        except ValueError:
-            # Handle leap year edge case (Feb 29 -> Feb 28)
-            bar_date = dod.replace(year=dod.year + 1, day=28)
+    try:
+        bar_date = dod.replace(year=dod.year + 1)
+    except ValueError:
+        # Handle leap year edge case (Feb 29 -> Feb 28)
+        bar_date = dod.replace(year=dod.year + 1, day=28)
     deadlines['absolute_bar_date'] = bar_date.strftime('%Y-%m-%d')
 
     if publication_date_str:
@@ -465,40 +475,137 @@ def build_common_replacements(data):
 
     dod_formatted = format_date_legal(data['decedent_dod']) if data.get('decedent_dod') else ''
 
+    # Sui juris statement
+    if all_sui_juris:
+        sui_juris_stmt = 'All beneficiaries are sui juris.'
+    else:
+        sui_juris_stmt = 'Not all beneficiaries are sui juris.'
+
+    # Computed closing-doc field: "were/were no" objections
+    were_or_no = data.get('were_or_no_objections', 'were no')
+
+    # Attorney first name
+    attorney_full = data.get('attorney_full_name', '')
+    attorney_first = attorney_full.split()[0] if attorney_full else ''
+
+    # PR city + state + zip combined
+    pr_city_state_zip = ', '.join(filter(None, [
+        data.get('pr_city', ''),
+        data.get('pr_state', 'Tennessee'),
+        data.get('pr_zip', ''),
+    ]))
+
+    # Will execution date formatted
+    will_date_formatted = (format_date_legal(data['will_execution_date'])
+                           if data.get('will_execution_date') else '')
+
+    # Codicil date
+    codicil_date_formatted = (format_date_legal(data['codicil_execution_date'])
+                              if data.get('codicil_execution_date') else '')
+
     replacements = {
-        # --- Decedent (both legacy and standardized) ---
+        # --- Decedent (all template variants) ---
         '{DECEDENT NAME}': data.get('decedent_full_name', ''),
         '{DECEDENT}': data.get('decedent_full_name', ''),
         '{Decedent name}': data.get('decedent_full_name', ''),
         '{Decedent Name}': data.get('decedent_full_name', ''),
+        '{Decedent}': data.get('decedent_full_name', ''),
+        '{decedent name}': data.get('decedent_full_name', ''),
         '{DECEDENT ADDRESS}': data.get('decedent_address', ''),
+        '{ADDRESS}': data.get('decedent_address', ''),
+        '{address}': data.get('decedent_address', ''),
+        '{Address}': data.get('decedent_address', ''),
+        "{Decedent's Address}": data.get('decedent_address', ''),
+        "{Decedent's Street Address}": data.get('decedent_address', ''),
         '{CITY}': data.get('decedent_city', ''),
+        '{City}': data.get('decedent_city', ''),
+        '{Decedent City}': data.get('decedent_city', ''),
+        '{DECEDENT CITY}': data.get('decedent_city', ''),
         '{COUNTY}': data.get('decedent_county', ''),
         '{COUNTY NAME}': data.get('decedent_county', ''),
+        '{County}': data.get('decedent_county', ''),
+        '{DECEDENT COUNTY}': data.get('decedent_county', ''),
+        '{County of Residence}': data.get('decedent_county', ''),
+        '{County of Residence for Decedent}': data.get('decedent_county', ''),
+        "{Decedent's County of Residence}": data.get('decedent_county', ''),
+        '{County of Probate}': data.get('decedent_county', ''),
         '{DATE OF DEATH}': dod_formatted,
+        '{Date of Death}': dod_formatted,
+        "{Decedent's Date of Death}": dod_formatted,
         '{AGE OF DECEDENT}': str(data.get('decedent_age', '')),
+        '{AGE}': str(data.get('decedent_age', '')),
+        '{AGE AT DEATH}': str(data.get('decedent_age', '')),
+        '{Age at Death}': str(data.get('decedent_age', '')),
+        '{Age of Death}': str(data.get('decedent_age', '')),
+        "{Decedent's Age}": str(data.get('decedent_age', '')),
         '{PLACE OF DEATH}': data.get('decedent_place_of_death', ''),
+        '{Place of Death}': data.get('decedent_place_of_death', ''),
+        '{At}': data.get('decedent_place_of_death', ''),
         '{HIS/HER}': dec_pronouns['possessive'],
         '{his/her}': dec_pronouns['possessive'],
+        '{DECEDENT PRONOUN \u2013 HIS/HER}': dec_pronouns['possessive'],
+        '{Decedent Possessive Pronoun}': dec_pronouns['possessive'],
         '{HE/SHE}': dec_pronouns['subject'],
         '{he/she}': dec_pronouns['subject'],
         '{him/her}': dec_pronouns['object'],
         '{was/was not CHOOSE ONE}': 'was' if data.get('decedent_had_business') else 'was not',
+        '{Decedent Spouse}': data.get('decedent_spouse_name', ''),
+        "{Decedent's Spouse Date of Death}": data.get('decedent_spouse_dod', ''),
 
-        # --- Personal Representative ---
+        # --- Personal Representative / Petitioner (all template variants) ---
         '{PETITIONER NAME}': data.get('pr_full_name', ''),
         '{PETITIONER}': data.get('pr_full_name', ''),
         '{Petitioner name}': data.get('pr_full_name', ''),
+        '{Petitioner Name}': data.get('pr_full_name', ''),
+        '{Petitioner}': data.get('pr_full_name', ''),
+        '{petitioner}': data.get('pr_full_name', ''),
+        "{petitioner's name}": data.get('pr_full_name', ''),
         '{EXECUTOR NAME}': data.get('pr_full_name', ''),
         '{Executor Name}': data.get('pr_full_name', ''),
+        '{Executor}': data.get('pr_full_name', ''),
+        '{Administrator Name}': data.get('pr_full_name', ''),
+        '{Administrator}': data.get('pr_full_name', ''),
         '{PETITIONER ADDRESS}': data.get('pr_address', ''),
+        '{ADDRESS OF PETITIONER}': data.get('pr_address', ''),
+        '{STREET OF PETITIONER}': data.get('pr_address', ''),
+        '{Street Address of Petitioner}': data.get('pr_address', ''),
+        '{Petitioner Street Address}': data.get('pr_address', ''),
+        '{Petitioner Address}': data.get('pr_address', ''),
         '{PETITIONER CITY}': data.get('pr_city', ''),
+        '{CITY OF PETITIONER}': data.get('pr_city', ''),
+        '{City of Petitioner}': data.get('pr_city', ''),
+        '{Petitioner City}': data.get('pr_city', ''),
+        '{Petitioner City, State Zip}': pr_city_state_zip,
+        '{Petitioner City, State, Zip}': pr_city_state_zip,
+        '{Petitioner Zip}': data.get('pr_zip', ''),
+        '{Petitioner Phone #}': data.get('pr_phone', ''),
         '{PETITIONER AGE}': str(data.get('pr_age', '')),
+        '{AGE OF PETITIONER}': str(data.get('pr_age', '')),
+        '{Age of Petitioner}': str(data.get('pr_age', '')),
+        '{Petitioner Age}': str(data.get('pr_age', '')),
         '{RELATIONSHIP OF PETITIONER TO DECEDENT}': data.get('pr_relationship', ''),
+        '{Relationship of Petitioner to Decedent}': data.get('pr_relationship', ''),
+        '{Petitioner Relationship to Decedent}': data.get('pr_relationship', ''),
+        '{Relation of Petition to Decedent}': data.get('pr_relationship', ''),
+        "{Decedent's Relationship to Petitioner}": data.get('pr_relationship', ''),
+        "{PETITIONER'S RELATIONSHIP TO THE DE}": data.get('pr_relationship', ''),
+        '{RELATION TO DECEDENT}': data.get('pr_relationship', ''),
+
+        # --- PR Title variants ---
         '{Executor/Executrix/PR Title CHOOSE ONE}': pr_title,
+        '{Executor/Executrix/PR Title}': pr_title,
+        '{Executor/Executrix/Personal Representative}': pr_title,
+        '{Executor/Executrix}': pr_title,
         '{Executor/trix}': pr_title,
         '{Administrator/trix CHOOSE ONE}': pr_title,
+        '{Administrator/trix}': pr_title,
+        '{Administrator or Administratrix CHOOSE ONE}': pr_title,
+        '{Administrator or Administratrix}': pr_title,
+        '{administrator or administratrix}': pr_title.lower(),
+        '{Administrator/Executor/PR}': pr_title,
         '{Title Executor/Executrix CHOOSE ONE}': pr_title,
+        '{TITLE}': pr_title,
+        '{Title}': pr_title,
         '{PETITIONER PRONOUNT \u2013 HE/SHE}': pr_pronouns['subject'],
         '{PETITIONER PRONOUN \u2013 HE/SHE}': pr_pronouns['subject'],
 
@@ -518,6 +625,36 @@ def build_common_replacements(data):
         '{MONTH}': today.strftime('%B'),
         '{CURRENT YEAR}': str(today.year),
         '{current_date_day}': ordinal_day(today_str),
+
+        # --- Computed statements ---
+        '{CRIMINAL_STATEMENT}': criminal_stmt,
+        '{BUSINESS_STATEMENT}': business_stmt,
+        '{WAIVER_STATEMENT}': will_waiver_stmt,
+        '{SUI_JURIS_STATEMENT}': sui_juris_stmt,
+        '{were/were no}': were_or_no,
+
+        # --- Additional case/date variants ---
+        '{docket number}': data.get('case_number', ''),
+        '{YEAR}': str(today.year),
+        '{Current Year}': str(today.year),
+        '{Month}': today.strftime('%B'),
+
+        # --- Additional attorney variants ---
+        '{ATTORNEY}': data.get('attorney_full_name', ''),
+        '{Attorney first name}': attorney_first,
+        '{BPR #}': data.get('attorney_bpr', ''),
+
+        # --- Additional PR / petitioner pronoun variants ---
+        '{Petitioner Pronoun HIS/HER}': pr_pronouns['possessive'],
+        '{Petitioner Pronoun HE/SHE}': pr_pronouns['subject'],
+
+        # --- Additional relationship variants ---
+        '{RELATION OF INHERITORS \u2013 sister, brother, children, etc}': data.get('pr_relationship', ''),
+
+        # --- Will date variants ---
+        '{Will Execution Date}': will_date_formatted,
+        '{WILL DATE}': will_date_formatted,
+        '{Codicil Date}': codicil_date_formatted,
 
         # --- Firm ---
         '{ATTORNEY NAME}': data.get('attorney_full_name', ''),
