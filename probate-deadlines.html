@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Muletown Law - Publication Deadlines Calculator</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // --- Date math helpers ---
+        function addMonths(date, months) {
+            const d = new Date(date);
+            d.setMonth(d.getMonth() + months);
+            return d;
+        }
+
+        function addDays(date, days) {
+            const d = new Date(date);
+            d.setDate(d.getDate() + days);
+            return d;
+        }
+
+        function formatDate(date) {
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        }
+
+        function daysFromToday(date) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const target = new Date(date);
+            target.setHours(0, 0, 0, 0);
+            const diff = Math.ceil((target - today) / (1000 * 60 * 60 * 24));
+            return diff;
+        }
+
+        // --- Parse a date input value (YYYY-MM-DD) into a local Date ---
+        function parseInputDate(value) {
+            if (!value) return null;
+            const [y, m, d] = value.split('-').map(Number);
+            return new Date(y, m - 1, d);
+        }
+
+        // --- Deadline Card Component ---
+        function DeadlineCard({ name, date, description, colorClass, badgeBg, badgeText }) {
+            const remaining = daysFromToday(date);
+            const passed = remaining < 0;
+
+            return (
+                <div className={`rounded-xl border-2 ${colorClass} p-6 shadow-md`}>
+                    <div className="flex items-start justify-between mb-3">
+                        <h3 className="text-lg font-bold text-gray-900">{name}</h3>
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${badgeBg} ${badgeText}`}>
+                            {passed ? 'PASSED' : `${remaining} day${remaining === 1 ? '' : 's'} from today`}
+                        </span>
+                    </div>
+                    <p className="text-3xl font-bold text-gray-800 mb-2">{formatDate(date)}</p>
+                    <p className="text-sm text-gray-600">{description}</p>
+                </div>
+            );
+        }
+
+        // --- Main Component ---
+        function DeadlinesCalculator() {
+            const [decedentName, setDecedentName] = useState('');
+            const [dateOfDeath, setDateOfDeath] = useState('');
+            const [publicationDate, setPublicationDate] = useState('');
+            const [deadlines, setDeadlines] = useState(null);
+
+            function calculateDeadlines() {
+                const dod = parseInputDate(dateOfDeath);
+                const pub = parseInputDate(publicationDate);
+                if (!dod || !pub) {
+                    setDeadlines(null);
+                    return;
+                }
+
+                const claimsDeadline = addMonths(pub, 4);
+                const exceptionDeadline = addDays(claimsDeadline, 30);
+                const absoluteBarDate = addMonths(dod, 12);
+                // Estate eligible to close = after exception deadline passes (same date)
+                const estateEligibleToClose = new Date(exceptionDeadline);
+
+                setDeadlines({
+                    claimsDeadline,
+                    exceptionDeadline,
+                    absoluteBarDate,
+                    estateEligibleToClose
+                });
+            }
+
+            // Auto-calculate when dates change
+            useEffect(() => {
+                if (dateOfDeath && publicationDate) {
+                    calculateDeadlines();
+                } else {
+                    setDeadlines(null);
+                }
+            }, [dateOfDeath, publicationDate]);
+
+            return (
+                <div className="min-h-screen bg-gray-50 py-12 px-4">
+                    <div className="max-w-4xl mx-auto">
+                        {/* Back link */}
+                        <div className="mb-4">
+                            <a href="index.html" className="text-blue-600 hover:text-blue-800 text-sm font-medium">&larr; Back to Home</a>
+                        </div>
+
+                        <div className="bg-white rounded-2xl shadow-xl p-8">
+                            <h1 className="text-4xl font-bold text-gray-900 mb-2 text-center">Muletown Law</h1>
+                            <p className="text-gray-600 text-center mb-8">Publication Deadlines Calculator</p>
+
+                            {/* Input Form */}
+                            <div className="p-6 bg-blue-50 rounded-lg mb-8">
+                                <h2 className="text-2xl font-semibold mb-4 text-blue-900">Estate Information</h2>
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Decedent Name</label>
+                                        <input
+                                            type="text"
+                                            value={decedentName}
+                                            onChange={(e) => setDecedentName(e.target.value)}
+                                            className="w-full px-3 py-2 border rounded-md"
+                                            placeholder="e.g., Smith, John"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Date of Death *</label>
+                                        <input
+                                            type="date"
+                                            value={dateOfDeath}
+                                            onChange={(e) => setDateOfDeath(e.target.value)}
+                                            className="w-full px-3 py-2 border rounded-md"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Publication Date *</label>
+                                        <input
+                                            type="date"
+                                            value={publicationDate}
+                                            onChange={(e) => setPublicationDate(e.target.value)}
+                                            className="w-full px-3 py-2 border rounded-md"
+                                        />
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={calculateDeadlines}
+                                    disabled={!dateOfDeath || !publicationDate}
+                                    className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+                                        dateOfDeath && publicationDate
+                                            ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md'
+                                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                    }`}
+                                >
+                                    Calculate Deadlines
+                                </button>
+                            </div>
+
+                            {/* Results */}
+                            {deadlines && (
+                                <div>
+                                    {decedentName && (
+                                        <h2 className="text-xl font-semibold text-gray-800 mb-4 text-center">
+                                            Deadlines for the Estate of {decedentName}
+                                        </h2>
+                                    )}
+
+                                    <div className="grid grid-cols-1 gap-4">
+                                        <DeadlineCard
+                                            name="Claims Deadline"
+                                            date={deadlines.claimsDeadline}
+                                            description="Last day creditor WITH notice can file a claim"
+                                            colorClass="border-amber-400 bg-amber-50"
+                                            badgeBg="bg-amber-100"
+                                            badgeText="text-amber-800"
+                                        />
+
+                                        <DeadlineCard
+                                            name="Exception Deadline"
+                                            date={deadlines.exceptionDeadline}
+                                            description="Deadline to file exceptions to any claims filed before claims deadline"
+                                            colorClass="border-red-400 bg-red-50"
+                                            badgeBg="bg-red-100"
+                                            badgeText="text-red-800"
+                                        />
+
+                                        <DeadlineCard
+                                            name="Absolute Bar Date"
+                                            date={deadlines.absoluteBarDate}
+                                            description="Last day creditor WITHOUT notice can file a claim"
+                                            colorClass="border-red-400 bg-red-50"
+                                            badgeBg="bg-red-100"
+                                            badgeText="text-red-800"
+                                        />
+
+                                        <DeadlineCard
+                                            name="Estate Eligible to Close"
+                                            date={deadlines.estateEligibleToClose}
+                                            description="Earliest date estate may be closed (if TennCare cleared and all claims resolved)"
+                                            colorClass="border-green-400 bg-green-50"
+                                            badgeBg="bg-green-100"
+                                            badgeText="text-green-800"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Lawmatics placeholder */}
+                            <div className="mt-8 p-4 bg-gray-100 rounded-lg border border-gray-200 text-center">
+                                <p className="text-sm text-gray-500 mb-3">Lawmatics integration will sync these deadlines as calendar events and tasks.</p>
+                                <button
+                                    disabled
+                                    className="px-6 py-2 bg-gray-300 text-gray-500 rounded-lg font-semibold cursor-not-allowed"
+                                >
+                                    Sync to Lawmatics (Coming Soon)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<DeadlinesCalculator />, document.getElementById('root'));
+    </script>
+</body>
+</html>
