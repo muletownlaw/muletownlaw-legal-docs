@@ -81,6 +81,7 @@
             const [progress, setProgress] = useState({ current: 0, total: 0, message: '' });
             const [completed, setCompleted] = useState(false);
             const [generatedDocs, setGeneratedDocs] = useState([]);
+            const [view, setView] = useState('home');
 
             const tennesseeCounties = ["Anderson", "Bedford", "Benton", "Bledsoe", "Blount", "Bradley", "Campbell", "Cannon", "Carroll", "Carter", "Cheatham", "Chester", "Claiborne", "Clay", "Cocke", "Coffee", "Crockett", "Cumberland", "Davidson", "Decatur", "DeKalb", "Dickson", "Dyer", "Fayette", "Fentress", "Franklin", "Gibson", "Giles", "Grainger", "Greene", "Grundy", "Hamblen", "Hamilton", "Hancock", "Hardeman", "Hardin", "Hawkins", "Haywood", "Henderson", "Henry", "Hickman", "Houston", "Humphreys", "Jackson", "Jefferson", "Johnson", "Knox", "Lake", "Lauderdale", "Lawrence", "Lewis", "Lincoln", "Loudon", "McMinn", "McNairy", "Macon", "Madison", "Marion", "Marshall", "Maury", "Meigs", "Monroe", "Montgomery", "Moore", "Morgan", "Obion", "Overton", "Perry", "Pickett", "Polk", "Putnam", "Rhea", "Roane", "Robertson", "Rutherford", "Scott", "Sequatchie", "Sevier", "Shelby", "Smith", "Stewart", "Sullivan", "Sumner", "Tipton", "Trousdale", "Unicoi", "Union", "Van Buren", "Warren", "Washington", "Wayne", "Weakley", "White", "Williamson", "Wilson"];
 
@@ -354,6 +355,73 @@
                 setProgress({ current: 0, total: 0, message: '' });
             };
 
+            if (view === 'home') {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col items-center justify-center py-12 px-4">
+                        <div className="w-full max-w-3xl">
+                            <div className="text-center mb-12">
+                                <h1 className="text-5xl font-bold text-gray-900 mb-3">Muletown Law</h1>
+                                <p className="text-gray-500 text-xl">Tennessee Legal Document Generator</p>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <button
+                                    onClick={() => setView('estate-planning')}
+                                    className="bg-white rounded-2xl shadow-lg p-10 text-left hover:shadow-xl hover:-translate-y-1 transition-all duration-200 border-2 border-transparent hover:border-blue-400 focus:outline-none"
+                                >
+                                    <div className="text-5xl mb-5">⚖️</div>
+                                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Estate Planning</h2>
+                                    <p className="text-gray-500 text-sm leading-relaxed">Generate Wills, Powers of Attorney, Healthcare POAs, and Advance Care Plans</p>
+                                </button>
+                                <button
+                                    onClick={() => setView('probate')}
+                                    className="bg-white rounded-2xl shadow-lg p-10 text-left hover:shadow-xl hover:-translate-y-1 transition-all duration-200 border-2 border-transparent hover:border-purple-400 focus:outline-none"
+                                >
+                                    <div className="text-5xl mb-5">🏛️</div>
+                                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Probate</h2>
+                                    <p className="text-gray-500 text-sm leading-relaxed">Open estates, track publication deadlines, and generate closing documents</p>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (view === 'probate') {
+                return (
+                    <div className="min-h-screen bg-gray-50 py-12 px-4">
+                        <div className="max-w-4xl mx-auto">
+                            <button
+                                onClick={() => setView('home')}
+                                className="mb-8 flex items-center text-gray-500 hover:text-gray-700 font-medium transition-colors"
+                            >
+                                ← Back
+                            </button>
+                            <div className="bg-white rounded-2xl shadow-xl p-8">
+                                <h1 className="text-3xl font-bold text-gray-900 mb-2 text-center">Probate</h1>
+                                <p className="text-gray-500 text-center mb-8">Tennessee Probate Document Generation & Case Tracking</p>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <a href="/probate.html" className="block p-6 bg-blue-50 rounded-lg border-2 border-blue-200 hover:border-blue-400 hover:shadow-md transition-all">
+                                        <div className="text-3xl mb-3">📋</div>
+                                        <h3 className="text-lg font-bold text-blue-900 mb-2">Open Probate Estate</h3>
+                                        <p className="text-sm text-blue-700">Generate petition, order, oath, declinations, and TennCare letter</p>
+                                    </a>
+                                    <a href="/probate-deadlines.html" className="block p-6 bg-amber-50 rounded-lg border-2 border-amber-200 hover:border-amber-400 hover:shadow-md transition-all">
+                                        <div className="text-3xl mb-3">📅</div>
+                                        <h3 className="text-lg font-bold text-amber-900 mb-2">Publication Deadlines</h3>
+                                        <p className="text-sm text-amber-700">Calculate statutory deadlines from publication date</p>
+                                    </a>
+                                    <a href="/probate-closing.html" className="block p-6 bg-green-50 rounded-lg border-2 border-green-200 hover:border-green-400 hover:shadow-md transition-all">
+                                        <div className="text-3xl mb-3">✅</div>
+                                        <h3 className="text-lg font-bold text-green-900 mb-2">Close Probate Estate</h3>
+                                        <p className="text-sm text-green-700">Generate closing petition, order, and receipts & waivers</p>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
             if (completed) {
                 return (
                     <div className="min-h-screen bg-gradient-to-br from-green-600 to-blue-700 py-12 px-4 flex items-center justify-center">
@@ -376,12 +444,20 @@
                                 </ul>
                             </div>
 
-                            <button
-                                onClick={reset}
-                                className="bg-blue-600 text-white py-3 px-8 rounded-lg font-semibold hover:bg-blue-700"
-                            >
-                                Generate More Documents
-                            </button>
+                            <div className="flex gap-4 justify-center">
+                                <button
+                                    onClick={reset}
+                                    className="bg-blue-600 text-white py-3 px-8 rounded-lg font-semibold hover:bg-blue-700"
+                                >
+                                    Generate More Documents
+                                </button>
+                                <button
+                                    onClick={() => { reset(); setView('home'); }}
+                                    className="bg-gray-100 text-gray-700 py-3 px-8 rounded-lg font-semibold hover:bg-gray-200"
+                                >
+                                    Back to Home
+                                </button>
+                            </div>
                         </div>
                     </div>
                 );
@@ -411,8 +487,14 @@
             return (
                 <div className="min-h-screen bg-gray-50 py-12 px-4">
                     <div className="max-w-5xl mx-auto">
+                        <button
+                            onClick={() => setView('home')}
+                            className="mb-6 flex items-center text-gray-500 hover:text-gray-700 font-medium transition-colors"
+                        >
+                            ← Back
+                        </button>
                         <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
-                            <h1 className="text-4xl font-bold text-gray-900 mb-2 text-center">Muletown Law</h1>
+                            <h1 className="text-4xl font-bold text-gray-900 mb-2 text-center">Estate Planning</h1>
                             <p className="text-gray-600 text-center mb-8">Tennessee Legal Document Generator</p>
 
                             {/* Client Information */}
@@ -906,28 +988,7 @@
                             )}
                         </div>
 
-                        {/* Probate Section */}
-                        <div className="bg-white rounded-2xl shadow-xl p-8">
-                            <h2 className="text-3xl font-bold text-gray-900 mb-2 text-center">Probate</h2>
-                            <p className="text-gray-600 text-center mb-6">Tennessee Probate Document Generation & Case Tracking</p>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <a href="/probate.html" className="block p-6 bg-blue-50 rounded-lg border-2 border-blue-200 hover:border-blue-400 hover:shadow-md transition-all">
-                                    <div className="text-3xl mb-3">📋</div>
-                                    <h3 className="text-lg font-bold text-blue-900 mb-2">Open Probate Estate</h3>
-                                    <p className="text-sm text-blue-700">Generate petition, order, oath, declinations, and TennCare letter</p>
-                                </a>
-                                <a href="/probate-deadlines.html" className="block p-6 bg-amber-50 rounded-lg border-2 border-amber-200 hover:border-amber-400 hover:shadow-md transition-all">
-                                    <div className="text-3xl mb-3">📅</div>
-                                    <h3 className="text-lg font-bold text-amber-900 mb-2">Publication Deadlines</h3>
-                                    <p className="text-sm text-amber-700">Calculate statutory deadlines from publication date</p>
-                                </a>
-                                <a href="/probate-closing.html" className="block p-6 bg-green-50 rounded-lg border-2 border-green-200 hover:border-green-400 hover:shadow-md transition-all">
-                                    <div className="text-3xl mb-3">✅</div>
-                                    <h3 className="text-lg font-bold text-green-900 mb-2">Close Probate Estate</h3>
-                                    <p className="text-sm text-green-700">Generate closing petition, order, and receipts & waivers</p>
-                                </a>
-                            </div>
-                        </div>
+
                     </div>
                 </div>
             );
