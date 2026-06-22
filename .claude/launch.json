@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Vercel Dev Server",
+      "runtimeExecutable": "vercel",
+      "runtimeArgs": ["dev"],
+      "port": 3000
+    },
+    {
+      "name": "Pytest (all tests)",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "pytest", "tests/", "-v"],
+      "port": 0
+    }
+  ]
+}
