@@ -1164,12 +1164,12 @@
             // --- Render current step ---
             const renderStep = () => {
                 switch (currentStep) {
-                    case 1: return <Step1 />;
-                    case 2: return <Step2 />;
-                    case 3: return <Step3 />;
-                    case 4: return <Step4 />;
-                    case 5: return <Step5 />;
-                    case 6: return <Step6 />;
+                    case 1: return Step1();
+                    case 2: return Step2();
+                    case 3: return Step3();
+                    case 4: return Step4();
+                    case 5: return Step5();
+                    case 6: return Step6();
                     default: return null;
                 }
             };
@@ -1186,7 +1186,7 @@
                             <h1 className="text-4xl font-bold text-gray-900 mb-2 text-center">Muletown Law</h1>
                             <p className="text-gray-600 text-center mb-8">Probate Opening Intake</p>
 
-                            <StepIndicator />
+                            {StepIndicator()}
 
                             {/* Error */}
                             {error && (
