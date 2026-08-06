@@ -1,7 +1,14 @@
 """Generate probate closing documents as a ZIP file."""
 from http.server import BaseHTTPRequestHandler
 import json
+import os
+import sys
 from io import BytesIO
+
+# Vercel runs functions from the project root; add the api directory to sys.path
+# so that relative imports like `from probate_utils import ...` resolve correctly.
+sys.path.insert(0, os.path.dirname(__file__))
+
 from probate_utils import (
     load_template, replace_in_document, build_common_replacements,
     select_closing_documents, select_receipt_waiver_template,
