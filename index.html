@@ -48,6 +48,7 @@
                 TRUSTEE_NAME: '',
 
                 // Optional Will Clauses
+                INCLUDE_SNT: false,
                 INCLUDE_DISINHERITANCE: false,
                 DISINHERITED_NAME: '',
                 DISINHERITED_RELATION: '',
@@ -69,6 +70,17 @@
                 // For spouse documents
                 SPOUSE_AGENTS_RECIPROCAL: true
             });
+
+            const [snBeneficiaries, setSnBeneficiaries] = useState([]);
+
+            const addSnBeneficiary = () => setSnBeneficiaries(prev => [...prev, {
+                sn_beneficiary_name: '', trustee_name: '', trustee_relation: '',
+                alt_trustee_name: '', alt_trustee_relation: '', remainder_name: '', remainder_relation: ''
+            }]);
+            const removeSnBeneficiary = (i) => setSnBeneficiaries(prev => prev.filter((_, idx) => idx !== i));
+            const updateSnBeneficiary = (i, field, value) => setSnBeneficiaries(prev =>
+                prev.map((b, idx) => idx === i ? { ...b, [field]: value } : b)
+            );
 
             const [selectedDocs, setSelectedDocs] = useState({
                 will: false,
@@ -209,7 +221,9 @@
                         GUARDIAN_NAME_2: data.GUARDIAN_NAME_2 || '',
                         GUARDIAN_RELATION_2: data.GUARDIAN_RELATION_2 || '',
                         GUARDIAN_NAME_3: data.GUARDIAN_NAME_3 || '',
-                        GUARDIAN_RELATION_3: data.GUARDIAN_RELATION_3 || ''
+                        GUARDIAN_RELATION_3: data.GUARDIAN_RELATION_3 || '',
+                        ENABLE_SNT_MODULE: data.INCLUDE_SNT && snBeneficiaries.length > 0,
+                        sn_beneficiaries: JSON.stringify(snBeneficiaries)
                     };
                 } else if (docType === 'poa') {
                     requestData = {
@@ -880,8 +894,72 @@
                                                     />
                                                 </div>
                                             )}
+                                            <label className="flex items-center">
+                                                <input
+                                                    type="checkbox"
+                                                    name="INCLUDE_SNT"
+                                                    checked={formData.INCLUDE_SNT}
+                                                    onChange={handleChange}
+                                                    className="mr-2"
+                                                />
+                                                <span className="text-sm">Supplemental Needs Trust</span>
+                                            </label>
                                         </div>
                                     </div>
+
+                                    {/* SNT Beneficiaries */}
+                                    {formData.INCLUDE_SNT && (
+                                        <div className="mt-4 p-4 bg-indigo-50 border border-indigo-300 rounded-md">
+                                            <div className="flex justify-between items-center mb-3">
+                                                <h3 className="font-semibold text-indigo-900">SNT Beneficiaries</h3>
+                                                <button onClick={addSnBeneficiary}
+                                                    className="px-3 py-1 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700">
+                                                    + Add Beneficiary
+                                                </button>
+                                            </div>
+                                            {snBeneficiaries.length === 0 && (
+                                                <p className="text-sm text-indigo-700">No beneficiaries added. Click "+ Add Beneficiary" to begin.</p>
+                                            )}
+                                            {snBeneficiaries.map((b, i) => (
+                                                <div key={i} className="mb-4 p-4 bg-white rounded-md border border-indigo-200">
+                                                    <div className="flex justify-between items-center mb-3">
+                                                        <span className="font-medium text-sm text-indigo-900">Beneficiary #{i + 1}</span>
+                                                        <button onClick={() => removeSnBeneficiary(i)}
+                                                            className="text-red-500 text-sm hover:text-red-700">Remove</button>
+                                                    </div>
+                                                    <div className="grid grid-cols-1 gap-3">
+                                                        <input type="text" value={b.sn_beneficiary_name}
+                                                            onChange={e => updateSnBeneficiary(i, 'sn_beneficiary_name', e.target.value)}
+                                                            className="w-full px-3 py-2 border rounded-md text-sm" placeholder="Beneficiary full name *" />
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            <input type="text" value={b.trustee_name}
+                                                                onChange={e => updateSnBeneficiary(i, 'trustee_name', e.target.value)}
+                                                                className="w-full px-3 py-2 border rounded-md text-sm" placeholder="Trustee name *" />
+                                                            <input type="text" value={b.trustee_relation}
+                                                                onChange={e => updateSnBeneficiary(i, 'trustee_relation', e.target.value)}
+                                                                className="w-full px-3 py-2 border rounded-md text-sm" placeholder="Trustee relation *" />
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            <input type="text" value={b.alt_trustee_name}
+                                                                onChange={e => updateSnBeneficiary(i, 'alt_trustee_name', e.target.value)}
+                                                                className="w-full px-3 py-2 border rounded-md text-sm" placeholder="Alt. Trustee name (optional)" />
+                                                            <input type="text" value={b.alt_trustee_relation}
+                                                                onChange={e => updateSnBeneficiary(i, 'alt_trustee_relation', e.target.value)}
+                                                                className="w-full px-3 py-2 border rounded-md text-sm" placeholder="Alt. Trustee relation" />
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            <input type="text" value={b.remainder_name}
+                                                                onChange={e => updateSnBeneficiary(i, 'remainder_name', e.target.value)}
+                                                                className="w-full px-3 py-2 border rounded-md text-sm" placeholder="Remainder beneficiary (optional)" />
+                                                            <input type="text" value={b.remainder_relation}
+                                                                onChange={e => updateSnBeneficiary(i, 'remainder_relation', e.target.value)}
+                                                                className="w-full px-3 py-2 border rounded-md text-sm" placeholder="Remainder relation" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
