@@ -21,8 +21,6 @@
             const [hasChildren, setHasChildren] = useState(true);
             const [reciprocalWills, setReciprocalWills] = useState(false);
             const [sameFixuciaries, setSameFiduciaries] = useState(true);
-            // SNT module: enabled only when ?snt=1 is in the URL (pending attorney sign-off)
-            const [enableSNT] = useState(() => new URLSearchParams(window.location.search).get('snt') === '1');
             
             // Form data
             const [formData, setFormData] = useState({
@@ -44,6 +42,7 @@
                 INCLUDE_NO_CONTEST: false,
                 INCLUDE_SELL_REAL_ESTATE: false,
                 INCLUDE_SPECIFIC_BEQUESTS: false,
+                INCLUDE_SNT: false,
                 GUARDIAN_NAME_1: '',
                 GUARDIAN_RELATION_1: '',
                 GUARDIAN_NAME_2: '',
@@ -183,7 +182,7 @@
                         HAS_CHILDREN: hasChildren,
                         children: JSON.stringify(children),
                         NUM_CHILDREN: children.length,
-                        ENABLE_SNT_MODULE: enableSNT && snBeneficiaries.length > 0,
+                        ENABLE_SNT_MODULE: formData.INCLUDE_SNT && snBeneficiaries.length > 0,
                         sn_beneficiaries: JSON.stringify(snBeneficiaries)
                     };
 
@@ -801,10 +800,26 @@
                                     </span>
                                 </label>
                             </div>
+
+                            {/* Supplemental Needs Trust */}
+                            <div className="mb-4">
+                                <label className="flex items-center space-x-3 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        name="INCLUDE_SNT"
+                                        checked={formData.INCLUDE_SNT}
+                                        onChange={handleInputChange}
+                                        className="h-5 w-5 text-blue-600 rounded"
+                                    />
+                                    <span className="font-medium text-gray-900">
+                                        Supplemental Needs Trust
+                                    </span>
+                                </label>
+                            </div>
                         </div>
 
-                        {/* SNT Beneficiaries — only visible when ?snt=1 (pending attorney sign-off) */}
-                        {enableSNT && (
+                        {/* SNT Beneficiaries — visible when SNT checkbox is checked */}
+                        {formData.INCLUDE_SNT && (
                             <div className="bg-indigo-50 rounded-lg shadow-md p-6 border-2 border-indigo-300">
                                 <div className="flex justify-between items-center mb-2">
                                     <h2 className="text-2xl font-bold text-gray-900">🔒 Supplemental Needs Trust</h2>
