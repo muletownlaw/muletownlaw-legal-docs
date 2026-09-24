@@ -13,8 +13,7 @@ vercel-project/
 ├── api/                    # Python serverless functions
 │   └── generate-poa.py    # POA document generator
 ├── public/                 # Frontend HTML files
-│   ├── index.html         # Landing page
-│   ├── will.html          # Will generator interface
+│   ├── index.html         # Estate planning document generator (will, POA, HCPOA, ACP)
 │   └── poa.html           # POA generator interface
 ├── templates/              # Document templates (future use)
 ├── vercel.json            # Vercel configuration

@@ -1,6 +1,11 @@
+## Key files
+- **`index.html`** — the live estate planning form at scrivening.muletown.law (will, POA, HCPOA, ACP). This is the file to edit for frontend changes.
+- **`will.html` does not exist** — it was deleted. Do not create or reference it.
+
 ## Deploy Configuration (configured by /setup-deploy)
 - Platform: Vercel
 - Production URL: https://muletownlaw-legal-docs.vercel.app
+- Custom domain: https://scrivening.muletown.law (same deployment)
 - Deploy workflow: auto-deploy on push to main (via GitHub integration)
 - Deploy status command: HTTP health check
 - Merge method: merge

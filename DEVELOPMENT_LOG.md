@@ -31,7 +31,7 @@
 4. **Last Will & Testament**
    - Status: Functional with recent bug fix ✅
    - Backend: `api/generate-will.py` (400 lines)
-   - Frontend: `will.html` (separate React interface)
+   - Frontend: `index.html` (unified estate planning form)
    - Features: Hybrid template + conditional logic, trust provisions, optional clauses
    - **Recent Fix (Oct 27)**: Children formatting now uses semicolons for readability
 
@@ -43,7 +43,7 @@
     - Supports couples (reciprocal documents)
     - Collects client info once, generates multiple docs
     - Walks through each doc type collecting agent info
-  - **Last Will & Testament**: Links to separate will generator (`will.html`)
+  - **Last Will & Testament**: Integrated into unified estate planning form (`index.html`)
 
 **Multi-Document Flow**:
 1. Home → Select POA Package
@@ -125,8 +125,7 @@ The project uses **3 distinct patterns** based on complexity:
 ### File Structure
 ```
 root/
-├── index.html                      # Unified home screen + POA package generator
-├── will.html                       # Separate will generator (React)
+├── index.html                      # Unified estate planning generator (will, POA, HCPOA, ACP)
 ├── api/
 │   ├── generate-will.py           # 400 lines, most complex
 │   ├── generate-poa.py            # 294 lines, programmatic

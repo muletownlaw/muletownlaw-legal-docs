@@ -10,7 +10,6 @@ project/
 ├── public/
 │   ├── index.html     ❌ Vercel couldn't find this
 │   ├── poa.html
-│   └── will.html
 ├── api/
 │   └── generate-poa.py
 └── vercel.json
@@ -21,7 +20,6 @@ project/
 project/
 ├── index.html         ✅ Vercel finds this at root URL
 ├── poa.html           ✅ Available at /poa.html
-├── will.html          ✅ Available at /will.html
 ├── api/
 │   ├── generate-poa.py  ✅ Available at /api/generate-poa
 │   └── generate-will.py ✅ Available at /api/generate-will
@@ -42,9 +40,8 @@ project/
 Download and upload these files to the **root** of your repository:
 
 **Root Files:**
-- index.html (landing page)
+- index.html (estate planning generator)
 - poa.html (POA generator)
-- will.html (Will generator)
 - vercel.json
 - requirements.txt
 - .gitignore
@@ -74,7 +71,6 @@ By moving HTML files to the root, Vercel can find them automatically.
 
 - **Home:** `https://your-site.vercel.app/` → Shows index.html
 - **POA:** `https://your-site.vercel.app/poa.html`
-- **Will:** `https://your-site.vercel.app/will.html`
 - **API:** `https://your-site.vercel.app/api/generate-poa`
 
 ## Simplified vercel.json
