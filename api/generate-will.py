@@ -476,6 +476,119 @@ def insert_trust_for_minors(doc, data, children, insert_index):
 
     return insert_index
 
+def resolve_snt_conditionals(text, flags):
+    """Strip [[IF FLAG]] / [[IF NOT FLAG]] markers from SNT clause text.
+
+    Inline conditionals (e.g. Section M mid-sentence) are handled correctly
+    because the regex is applied to the full text before paragraph splitting.
+    """
+    def keep_if(m):
+        return m.group(2) if flags.get(m.group(1), False) else ''
+
+    def keep_if_not(m):
+        return m.group(2) if not flags.get(m.group(1), False) else ''
+
+    # Process [[IF NOT ...]] before [[IF ...]] to avoid partial matches
+    text = re.sub(r'\[\[IF NOT (\w+)\]\](.*?)\[\[END IF\]\]', keep_if_not, text, flags=re.DOTALL)
+    text = re.sub(r'\[\[IF (\w+)\]\](.*?)\[\[END IF\]\]', keep_if, text, flags=re.DOTALL)
+    # Collapse any double spaces that result from inline removal
+    text = re.sub(r'  +', ' ', text)
+    return text
+
+
+def _validate_snt_beneficiaries(sn_beneficiaries):
+    """Return an error string if required SNT fields are missing, else None."""
+    for ben in sn_beneficiaries:
+        name = ben.get('sn_beneficiary_name', '').strip()
+        if not name:
+            return 'SNT beneficiary name is required'
+        if not ben.get('trustee_name', '').strip():
+            return f'SNT trustee name is required for {name}'
+        if not ben.get('trustee_relation', '').strip():
+            return f'SNT trustee relation is required for {name}'
+        if ben.get('alt_trustee_name', '').strip() and not ben.get('alt_trustee_relation', '').strip():
+            return f'Alt trustee relation required when alt trustee is named for {name}'
+        if ben.get('remainder_name', '').strip() and not ben.get('remainder_relation', '').strip():
+            return f'Remainder relation required when remainder beneficiary is named for {name}'
+    return None
+
+
+def _add_snt_paragraph(doc, para_text, insert_index):
+    """Insert one SNT paragraph at insert_index, handling **bold lead-in** markup.
+
+    Returns updated insert_index.
+    """
+    para_text = para_text.strip()
+    if not para_text:
+        return insert_index
+
+    new_para = doc.add_paragraph()
+
+    bold_match = re.match(r'^\*\*([^*]+)\*\*\s*(.*)', para_text, re.DOTALL)
+    if bold_match:
+        bold_run = new_para.add_run(bold_match.group(1) + ' ')
+        bold_run.bold = True
+        body = bold_match.group(2).strip()
+        if body:
+            new_para.add_run(body)
+    else:
+        new_para.add_run(para_text)
+
+    _format_body_para(new_para)
+
+    new_para._element.getparent().remove(new_para._element)
+    doc.paragraphs[insert_index]._element.addprevious(new_para._element)
+    return insert_index + 1
+
+
+def insert_snt_articles(doc, data, sn_beneficiaries, has_minor_trust, insert_index):
+    """Insert one SNT article per beneficiary at insert_index.
+
+    Guarded by ENABLE_SNT_MODULE flag; skips silently if disabled or empty.
+    {MINOR_TRUST_ARTICLE_NUMBER} is left as a placeholder; Step 6c resolves it
+    after renumbering.  Returns updated insert_index.
+    """
+    if not data.get('ENABLE_SNT_MODULE'):
+        return insert_index
+    if not sn_beneficiaries:
+        return insert_index
+
+    raw_text = load_clause_text('LWT_-_SNT_Article.txt')
+    if not raw_text:
+        return insert_index
+
+    for ben in sn_beneficiaries:
+        sn_name = ben.get('sn_beneficiary_name', '').strip()
+        flags = {
+            'HAS_ALT_TRUSTEE': bool(ben.get('alt_trustee_name', '').strip()),
+            'HAS_CONTINGENT_REMAINDER': bool(ben.get('remainder_name', '').strip()),
+            'HAS_MINOR_TRUST_ARTICLE': has_minor_trust,
+        }
+
+        article_text = resolve_snt_conditionals(raw_text, flags)
+
+        article_text = article_text.replace('{SN_BENEFICIARY_NAME}', sn_name)
+        article_text = article_text.replace('{TRUSTEE_RELATION}', ben.get('trustee_relation', ''))
+        article_text = article_text.replace('{TRUSTEE_NAME}', ben.get('trustee_name', ''))
+        article_text = article_text.replace('{ALT_TRUSTEE_RELATION}', ben.get('alt_trustee_relation', ''))
+        article_text = article_text.replace('{ALT_TRUSTEE_NAME}', ben.get('alt_trustee_name', ''))
+        article_text = article_text.replace('{REMAINDER_RELATION}', ben.get('remainder_relation', ''))
+        article_text = article_text.replace('{REMAINDER_NAME}', ben.get('remainder_name', ''))
+        # {MINOR_TRUST_ARTICLE_NUMBER} resolved in Step 6c after renumbering
+
+        # Insert heading — "Article IV" is a placeholder renumbered in Step 6
+        heading_para = doc.add_paragraph(f'Article IV - Supplemental Needs Trust for {sn_name}')
+        _format_heading_para(heading_para)
+        heading_para._element.getparent().remove(heading_para._element)
+        doc.paragraphs[insert_index]._element.addprevious(heading_para._element)
+        insert_index += 1
+
+        for para_text in article_text.split('\n\n'):
+            insert_index = _add_snt_paragraph(doc, para_text, insert_index)
+
+    return insert_index
+
+
 def calculate_age(dob_string):
     """Calculate age from birthdate string.
 
@@ -692,10 +805,27 @@ def generate_will_document(data):
     # Step 4: Insert no-contest as Article IV if requested
     no_contest_inserted = insert_no_contest_article(doc, data)
 
-    # Step 5: Insert optional articles (guardian + trust) at ##INSERT_NEW_ARTICLES## marker.
+    # Parse SNT beneficiaries and determine if the module is active.
+    sn_beneficiaries_raw = data.get('sn_beneficiaries', [])
+    if isinstance(sn_beneficiaries_raw, str):
+        try:
+            sn_beneficiaries = json.loads(sn_beneficiaries_raw)
+        except (json.JSONDecodeError, ValueError):
+            sn_beneficiaries = []
+    else:
+        sn_beneficiaries = sn_beneficiaries_raw or []
+    snt_enabled = bool(data.get('ENABLE_SNT_MODULE')) and bool(sn_beneficiaries)
+
+    # Validate SNT fields before proceeding
+    if snt_enabled:
+        err = _validate_snt_beneficiaries(sn_beneficiaries)
+        if err:
+            return {'error': err}
+
+    # Step 5: Insert optional articles (guardian + trust + SNT) at ##INSERT_NEW_ARTICLES## marker.
     # Find and remove the marker once, then insert articles in document order:
-    # guardian (children < 18) first, trust (children < 25) second.
-    if children:
+    # guardian (children < 18) first, trust (children < 25) second, SNT last.
+    if children or snt_enabled:
         articles_index = None
         for i, para in enumerate(doc.paragraphs):
             if '##INSERT_NEW_ARTICLES##' in para.text:
@@ -703,9 +833,12 @@ def generate_will_document(data):
                 para._element.getparent().remove(para._element)
                 break
         if articles_index is not None:
-            minor_children = [c for c in children if calculate_age(c.get('dob', '')) < 18]
-            articles_index = insert_guardian_article(doc, data, minor_children, articles_index)
-            articles_index = insert_trust_for_minors(doc, data, children, articles_index)
+            if children:
+                minor_children = [c for c in children if calculate_age(c.get('dob', '')) < 18]
+                articles_index = insert_guardian_article(doc, data, minor_children, articles_index)
+                articles_index = insert_trust_for_minors(doc, data, children, articles_index)
+            has_minor_trust = children and any(calculate_age(c.get('dob', '')) < 25 for c in children)
+            articles_index = insert_snt_articles(doc, data, sn_beneficiaries, has_minor_trust, articles_index)
 
     # Step 6: Renumber articles from IV onwards based on what was inserted.
     # Articles I-III are fixed; everything from IV onwards gets sequential numbering.
@@ -737,6 +870,27 @@ def generate_will_document(data):
     for para in doc.paragraphs:
         if article_pattern.match(para.text.strip()):
             _format_heading_para(para)
+
+    # Step 6c: Resolve {MINOR_TRUST_ARTICLE_NUMBER} placeholders left by insert_snt_articles.
+    # Find the final renumbered article heading for the minor trust article, then substitute.
+    if snt_enabled:
+        minor_trust_roman = None
+        for para in doc.paragraphs:
+            m = re.match(r'^Article\s+([IVXLCDM]+)\s+-\s+Trust for Minor Children$', para.text.strip())
+            if m:
+                minor_trust_roman = m.group(1)
+                break
+        if minor_trust_roman:
+            for para in doc.paragraphs:
+                if '{MINOR_TRUST_ARTICLE_NUMBER}' in para.text:
+                    replace_in_runs(para, '{MINOR_TRUST_ARTICLE_NUMBER}', minor_trust_roman)
+
+    # Step 6d: Conforming change — when the SNT module is active, the powers article
+    # that incorporates T.C.A. § 35-50-110 must say "Trustees" not "Co-Trustees".
+    if snt_enabled:
+        for para in doc.paragraphs:
+            if 'Co-Trustees' in para.text:
+                replace_in_runs(para, 'Co-Trustees', 'Trustees')
 
     # Step 7: Add page numbers if not already there
     add_page_numbers(doc)
